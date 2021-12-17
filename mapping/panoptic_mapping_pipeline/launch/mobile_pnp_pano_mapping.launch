@@ -1,14 +1,14 @@
 <launch>
 
   <!-- scene dataset -->
-  <arg name="dataset" default="sceneNN" />
+  <arg name="dataset" default="mobile_pnp" />
   <!-- vrep-rendered sequences need depth flip -->
   <arg name="flip_depth" default="false" />
   <!-- ground normal direction, 0:x, 1:y, 2:z   sceneNN uses y axis as ground normal -->
   <arg name="ground_axis" default="1" />
 
   <!-- sequence name (saved folder name) -->
-  <arg name="sequence" default="sceneNN_test" />
+  <arg name="sequence" default="mobile_pnp_0" />
 
   <!-- operation mode -->
   <!-- localize with SLAM or use ground truth camera pose -->
@@ -16,6 +16,8 @@
   <arg name="use_GT_pose" default="true" />
   <!-- save sequence images (rgb, depth, panoptic seg, depth seg, fused seg) -->
   <arg name="save_img" default="false" />
+  <!-- use ground truth segmentation -->
+  <arg name="use_GT_seg" default="true" />
   <!-- publish per-frame segments -->
   <arg name="pub_point_cloud_seg" default="true" />
   <!-- perform panoptic mapping -->
@@ -33,7 +35,7 @@
   <arg name="init_height" default="1.0"  />
 
   <!-- detectron (segmentation) parameters -->
-  <arg name="enable_detectron" default="true" />
+  <arg name="enable_detectron" default="false" />
   <arg name="detectron_model" default="Pano_seg" />
 
   <!-- input topics -->
@@ -42,9 +44,14 @@
   <arg name="depth_raw_topic" default="camera/depth/image_raw" />
 
   <!-- intermediate output topics -->
-  <arg name="output_rgb_topic" default="/perception/rgb_image" />
-  <arg name="output_depth_topic" default="/perception/depth_image" />
-  <arg name="output_camera_info_topic" default="/perception/camera_info" />
+  <!-- Remap to input camera topics if using ground truth seg -->
+  <arg name="output_rgb_topic" default="$(arg rgb_raw_topic)" if="$(arg use_GT_seg)"/>
+  <arg name="output_depth_topic" default="$(arg depth_raw_topic)" if="$(arg use_GT_seg)"/>
+  <arg name="output_camera_info_topic" default="$(arg camera_info_topic)" if="$(arg use_GT_seg)"/>
+  <!-- Original camera topics -->
+  <arg name="output_rgb_topic" default="/perception/rgb_image" unless="$(arg use_GT_seg)"/>
+  <arg name="output_depth_topic" default="/perception/depth_image" unless="$(arg use_GT_seg)"/>
+  <arg name="output_camera_info_topic" default="/perception/camera_info" unless="$(arg use_GT_seg)"/>
   <arg name="output_seg_topic" default="/perception/seg" />
   <arg name="output_point_cloud_seg_topic" default="/perception/seg_point_cloud" />
 
@@ -55,7 +62,7 @@
 
 
   <!-- launch node for image processing & panoptic segmentation -->
-  <node name="robot_perception_node" pkg="perception_ros" type="perception_node.py" output="screen">
+  <node name="robot_perception_node" pkg="perception_ros" type="perception_node.py" output="screen" unless="$(arg use_GT_seg)">
       <remap from="/camera/rgb/image_raw" to="$(arg rgb_raw_topic)"/>
       <remap from="/camera/depth/image_raw" to="$(arg depth_raw_topic)"/>
       <remap from="/camera/rgb/camera_info" to="$(arg camera_info_topic)"/>
@@ -93,13 +100,14 @@
   <node name="pc_seg_generator_node" pkg="perception_ros" type="pc_seg_generator_node" output="screen" if="$(arg pub_point_cloud_seg)">
       <rosparam command="load" file="$(find perception_ros)/cfg/seg_param.yaml" />
       <rosparam command="load" file="$(find perception_ros)/cfg/pc_gen_param.yaml" />
-      <rosparam command="load" file="$(find panoptic_mapping_pipeline)/cfg/pano_class.yaml" />
+      <rosparam command="load" file="$(find panoptic_mapping_pipeline)/cfg/mobile_pnp_pano_class.yaml" />
 
       <remap from="/perception/rgb_image" to="$(arg output_rgb_topic)"/>
       <remap from="/perception/depth_image" to="$(arg output_depth_topic)"/>
       <remap from="/perception/camera_info" to="$(arg output_camera_info_topic)"/>
       <remap from="/perception/seg" to="$(arg output_seg_topic)"/>
 
+      <param name="use_geometric_segmentation" type="bool" value="false" if="$(arg use_GT_seg)" />
       <param name="output_folder" type="string" value="$(find panoptic_mapping_pipeline)/../../output/$(arg sequence)" />
       <param name="use_GT_camera_frame" type="bool" value="$(arg use_GT_pose)" />
       <param name="camera_frame" type="string" value="$(arg camera_frame)" />
@@ -112,7 +120,7 @@
       <param name="output_folder" type="string" value="$(find panoptic_mapping_pipeline)/../../output/$(arg sequence)" />
       <rosparam command="load" file="$(find gsm_node)/cfg/default.yaml" />
       <rosparam command="load" file="$(find gsm_node)/cfg/pano_mapping.yaml" />
-      <rosparam command="load" file="$(find panoptic_mapping_pipeline)/cfg/pano_class.yaml" />
+      <rosparam command="load" file="$(find panoptic_mapping_pipeline)/cfg/mobile_pnp_pano_class.yaml" />
       <param name="meshing/visualize" type="bool" value="$(arg visualize_mapping)" />
       <param name="ground_axis" type="int" value="$(arg ground_axis)" />
   </node>

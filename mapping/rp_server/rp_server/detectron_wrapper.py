@@ -32,9 +32,9 @@ class DetectronWrapper(object):
             cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(cfg_file)
         except:
             raise Exception("Do not support type `{}`".format(task))
-            
+
         self.predictor_ = DefaultPredictor(cfg)
-    
+
 
     def predict(self, img):
         ret = self.predictor_(img)
@@ -43,7 +43,5 @@ class DetectronWrapper(object):
         if self.task_ == "Pano_seg":
             return ret
         else:
-            return ret[ DETECTION_RES_KEY[self.task_] ] 
+            return ret[ DETECTION_RES_KEY[self.task_] ]
 
-
-    

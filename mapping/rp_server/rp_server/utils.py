@@ -18,7 +18,7 @@ def img2bin(img):
     """
     return np.array(cv2.imencode(".jpg", img)[1]).tostring()
 
-    
+
 def bin2img(img_bin):
     """
     Convert binary string to cv2 image matrix
@@ -53,7 +53,7 @@ def bin2openpose(kp_bin):
 
     if n_poses == 0:
         return []
-    
+
     return np.frombuffer(kp_bin, dtype="float32").reshape((n_poses, 25, 3))
 
 
@@ -66,17 +66,17 @@ def bin2detectron_instseg(dt_bin):
     """
     if len(dt_bin) == 0:
         return {}
-    
+
     map_size = bin2int(dt_bin[:4])
     w, h = bin2int(dt_bin[4:8]), bin2int(dt_bin[8:12])
     mask_bin = zlib.decompress(dt_bin[12:12+map_size])
     masks = np.frombuffer(mask_bin, dtype="uint8").reshape((h, w))
 
     dt_res = json.loads( dt_bin[12 + map_size:].decode() )
-    
+
     # add masks field
     dt_res["masks"] = masks
-    
+
     return dt_res
 
 
@@ -89,7 +89,7 @@ def bin2detectron_panoseg(dt_bin):
     """
     if len(dt_bin) == 0:
         return {}
-    
+
     map_size = bin2int(dt_bin[:4])
     w, h = bin2int(dt_bin[4:8]), bin2int(dt_bin[8:12])
     seg_map_bin = zlib.decompress(dt_bin[12:12+map_size])
@@ -103,7 +103,7 @@ def bin2detectron_panoseg(dt_bin):
         "info": info_json["info"],
         "boxes": info_json["boxes"]
     }
-    
+
     return dt_res
 
 
