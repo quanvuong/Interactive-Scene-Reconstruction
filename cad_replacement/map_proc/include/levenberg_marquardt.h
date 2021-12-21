@@ -11,7 +11,7 @@ namespace MapProcessing
 
 struct FineAlignmentError
 {
-	// 'm' pairs of (x, f(x))
+    // 'm' pairs of (x, f(x))
     int m;
     // relative to supported plane (height)
     Eigen::VectorXf supporting_planes_cad;
@@ -19,7 +19,7 @@ struct FineAlignmentError
 
     int n;
     // relative to bounding box frame
-	Eigen::MatrixXf planes_cad;
+    Eigen::MatrixXf planes_cad;
     Eigen::MatrixXf planes_object;
 
     // int c;
@@ -42,22 +42,22 @@ struct FineAlignmentError
     float half_v_dim_cad;
     float half_v_dim_object;
 
-	// Error vector
-	int operator()(const Eigen::VectorXf &x, Eigen::VectorXf &fvec) const
-	{
+    // Error vector
+    int operator()(const Eigen::VectorXf &x, Eigen::VectorXf &fvec) const
+    {
         fvec.resize(values());
         fvec.setZero();
 
         // Variables to be optimized
-		float s = x(0);
-		float d_theta = x(1);
-		float d_u = x(2);
+        float s = x(0);
+        float d_theta = x(1);
+        float d_u = x(2);
         float d_v = x(3);
 
         // m height-misalignment error
         for (int i = 0; i < m; i++)
             fvec(i) = 8*(supporting_planes_object(i) - s * supporting_planes_cad(i));
-        
+
         // Tb_c.inverse().transpose()
         Eigen::Matrix3f rotation = Eigen::Matrix3f::Zero();
         rotation(ground(0), ground(0)) = cos(d_theta);
@@ -111,53 +111,53 @@ struct FineAlignmentError
         fvec(m+2*n+w+8) = 2*(half_ground_dim_cad * s - half_ground_dim_object);
         fvec(m+2*n+w+9) = 0.0;
 
-		return 0;
-	}
+        return 0;
+    }
 
-	// Compute the jacobian of the errors
-	int df(const Eigen::VectorXf &x, Eigen::MatrixXf &fjac) const
-	{
-		// 'x' has dimensions p x 1
-		// It contains the current estimates for the parameters.
+    // Compute the jacobian of the errors
+    int df(const Eigen::VectorXf &x, Eigen::MatrixXf &fjac) const
+    {
+        // 'x' has dimensions p x 1
+        // It contains the current estimates for the parameters.
 
-		// 'fjac' has dimensions N x p
-		// It will contain the jacobian of the errors, calculated numerically in this case.
+        // 'fjac' has dimensions N x p
+        // It will contain the jacobian of the errors, calculated numerically in this case.
 
-		float epsilon;
-		epsilon = 1e-6f;
+        float epsilon;
+        epsilon = 1e-6f;
 
-		for (int i = 0; i < x.size(); i++) {
-			Eigen::VectorXf xPlus(x);
-			xPlus(i) += epsilon;
-			Eigen::VectorXf xMinus(x);
-			xMinus(i) -= epsilon;
+        for (int i = 0; i < x.size(); i++) {
+            Eigen::VectorXf xPlus(x);
+            xPlus(i) += epsilon;
+            Eigen::VectorXf xMinus(x);
+            xMinus(i) -= epsilon;
 
-			Eigen::VectorXf fvecPlus(values());
-			operator()(xPlus, fvecPlus);
+            Eigen::VectorXf fvecPlus(values());
+            operator()(xPlus, fvecPlus);
 
-			Eigen::VectorXf fvecMinus(values());
-			operator()(xMinus, fvecMinus);
+            Eigen::VectorXf fvecMinus(values());
+            operator()(xMinus, fvecMinus);
 
-			Eigen::VectorXf fvecDiff(values());
-			fvecDiff = (fvecPlus - fvecMinus) / (2.0f * epsilon);
+            Eigen::VectorXf fvecDiff(values());
+            fvecDiff = (fvecPlus - fvecMinus) / (2.0f * epsilon);
 
-			fjac.block(0, i, values(), 1) = fvecDiff;
-		}
+            fjac.block(0, i, values(), 1) = fvecDiff;
+        }
 
-		return 0;
-	}
+        return 0;
+    }
 
     // Number of data points, i.e. values.
-	int N;
+    int N;
 
-	// Returns 'N', the number of values.
-	int values() const { return N; }
+    // Returns 'N', the number of values.
+    int values() const { return N; }
 
-	// The number of parameters, i.e. inputs.
-	int p;
+    // The number of parameters, i.e. inputs.
+    int p;
 
-	// Returns 'p', the number of inputs.
-	int inputs() const { return p; }
+    // Returns 'p', the number of inputs.
+    int inputs() const { return p; }
 
 };
 

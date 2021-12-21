@@ -68,17 +68,17 @@ void ComputePlanesRANSAC(const pcl::PointCloud<PointTFull>::Ptr& cloud, std::vec
         ROS_ERROR("Null input point cloud pointer!");
         return;
     }
-        
+
     planes.clear();
     int i = 1;
 
-    pcl::PointCloud<PointT>::Ptr input_cloud (new pcl::PointCloud<PointT>);   
-    pcl::PointCloud<pcl::Normal>::Ptr normal_cloud (new pcl::PointCloud<pcl::Normal>);  
+    pcl::PointCloud<PointT>::Ptr input_cloud (new pcl::PointCloud<PointT>);
+    pcl::PointCloud<pcl::Normal>::Ptr normal_cloud (new pcl::PointCloud<pcl::Normal>);
     pcl::copyPointCloud(*cloud, *input_cloud);
     pcl::copyPointCloud(*cloud, *normal_cloud);
 
     int input_cloud_size = input_cloud->points.size();
-    std::cout << "num of points: " << input_cloud_size <<std::endl;
+    std::cout << "num of points: " << input_cloud_size << std::endl;
 
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -95,7 +95,7 @@ void ComputePlanesRANSAC(const pcl::PointCloud<PointTFull>::Ptr& cloud, std::vec
     seg.setMaxIterations (200);
 
     while (1)
-    {   
+    {
         seg.setInputCloud (input_cloud);
         seg.setInputNormals (normal_cloud);
         seg.segment (*inliers, *coefficients);
@@ -111,7 +111,7 @@ void ComputePlanesRANSAC(const pcl::PointCloud<PointTFull>::Ptr& cloud, std::vec
             pcl::ExtractIndices<pcl::Normal> extract_normal;
             extract_normal.setInputCloud (normal_cloud);
             extract_normal.setIndices (inliers);
-            pcl::PointCloud<pcl::Normal>::Ptr normal_inliers (new pcl::PointCloud<pcl::Normal>);  
+            pcl::PointCloud<pcl::Normal>::Ptr normal_inliers (new pcl::PointCloud<pcl::Normal>);
             extract_normal.setNegative (false);
             extract_normal.filter (*normal_inliers);
 
@@ -121,19 +121,21 @@ void ComputePlanesRANSAC(const pcl::PointCloud<PointTFull>::Ptr& cloud, std::vec
             extract_normal.filter (*normal_cloud);
 
             // Check direction of plane normal
+            // align plane normal with mean inlier point normal
             Eigen::Vector4f plane (coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
             Eigen::Vector3f normal = ComputeMeanNormal (normal_inliers);
             if (normal.transpose() * plane.head(3) < 0)
                 plane = -plane;
             planes.push_back(plane);
-            
+
             // std::cout << "Iteration: " + std::to_string(i) <<std::endl;
-            // std::cout << "Model coefficients: " << plane(0) << " " 
+            // std::cout << "Model coefficients: " << plane(0) << " "
             //                                     << plane(1) << " "
-            //                                     << plane(2) << " " 
+            //                                     << plane(2) << " "
             //                                     << plane(3) << std::endl;
             // std::cout << "Model inliers: " << inliers->indices.size () << std::endl;
 
+            // Remaining points less than 0.1 times original # of points
             if (input_cloud->points.size() < 0.1 * input_cloud_size)
                 break;
             i++;
@@ -232,7 +234,7 @@ float GetOverlapRatio2D (const OBBox& parent, const OBBox& child, const int grou
             float grid_u = vect.transpose()*parent_u;
             float grid_v = vect.transpose()*parent_v;
             if (grid_u < max_dim_parent_u && grid_u > -max_dim_parent_u && grid_v < max_dim_parent_v && grid_v > -max_dim_parent_v)
-               overlap_count++; 
+               overlap_count++;
         }
     }
     float overlap_ratio = (float)(overlap_count)/(float)(max_step_child_u*max_step_child_v*4);
@@ -459,7 +461,7 @@ int CheckPointCloudCollision (const pcl::PointCloud<PointT>::Ptr cloud_1, const 
     {
         ROS_ERROR("Null point cloud pointer");
         return 0;
-    } 
+    }
 
     int collide_count = 0;
     pcl::KdTreeFLANN<PointT> kdtree;
@@ -472,16 +474,16 @@ int CheckPointCloudCollision (const pcl::PointCloud<PointT>::Ptr cloud_1, const 
         {
             if (pointIdxRadiusSearch.size() > 0)
                 collide_count++;
-        }              
+        }
     }
     return collide_count;
 }
 
 
-float ComputePointCloudToMeshError(const pcl::PointCloud<PointTFull>& point_cloud, const pcl::PolygonMesh& mesh) 
+float ComputePointCloudToMeshError(const pcl::PointCloud<PointTFull>& point_cloud, const pcl::PolygonMesh& mesh)
 {
     float error = 0;
-    // Get vertices 
+    // Get vertices
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromPCLPointCloud2(mesh.cloud, *cloud);
 
@@ -529,13 +531,13 @@ float ComputePointCloudOverlap (const pcl::PointCloud<PointTFull>::Ptr cloud_1, 
     {
         ROS_ERROR("Null point cloud pointer");
         return 0;
-    } 
+    }
 
     int num_overlop_points = 0;
     pcl::KdTreeFLANN<PointTFull> kdtree;
     kdtree.setInputCloud (cloud_2);
 
-    // auto cmp = [](const auto & a, const auto & b) -> bool { return a.second < b.second;}; 
+    // auto cmp = [](const auto & a, const auto & b) -> bool { return a.second < b.second;};
 
     for (int i = 0; i < cloud_1->points.size(); i++)
     {
@@ -559,7 +561,7 @@ float ComputePointCloudOverlap (const pcl::PointCloud<PointTFull>::Ptr cloud_1, 
             // if (ComputeNormalError (cloud_2->points[index_distance_pairs[0].first], cloud_1->points[i] < ))
 
         }
-            
+
     }
 
     return (float)num_overlop_points  / (float)cloud_1->points.size();
@@ -572,13 +574,13 @@ float ComputePointCloudOverlapSquaredDistance (const pcl::PointCloud<PointTFull>
     {
         ROS_ERROR("Null point cloud pointer");
         return 0;
-    } 
+    }
 
     float squared_distance = 0.0f;
     pcl::KdTreeFLANN<PointTFull> kdtree;
     kdtree.setInputCloud (cloud_2);
 
-    // auto cmp = [](const auto & a, const auto & b) -> bool { return a.second < b.second;}; 
+    // auto cmp = [](const auto & a, const auto & b) -> bool { return a.second < b.second;};
 
     for (int i = 0; i < cloud_1->points.size(); i++)
     {
@@ -592,7 +594,7 @@ float ComputePointCloudOverlapSquaredDistance (const pcl::PointCloud<PointTFull>
         else
         {
             squared_distance += dist_threshood*dist_threshood;
-        }    
+        }
     }
 
     return squared_distance/ (float) cloud_1->points.size();
@@ -621,8 +623,8 @@ void ComputeGroundOrientedBoundingBox(const pcl::PointCloud<PointTFull>::Ptr& cl
     }
 
     ApproxMVBB::Matrix2Dyn points(2, cloud->points.size());  // x, y in approxMVBB
-    
-    for (size_t i = 0u; i < cloud->points.size(); ++i) 
+
+    for (size_t i = 0u; i < cloud->points.size(); ++i)
     {
         Eigen::Vector3d point (cloud->points[i].x, cloud->points[i].y, cloud->points[i].z);
         points(0, i) = point((ground+1)%3);
@@ -673,7 +675,7 @@ float ComputeBoxPlanePenetration (const OBBox& box, const Eigen::Vector4f& plane
                box.aligned_dims(2)/2, -box.aligned_dims(2)/2, box.aligned_dims(2)/2, -box.aligned_dims(2)/2, box.aligned_dims(2)/2, -box.aligned_dims(2)/2, box.aligned_dims(2)/2, -box.aligned_dims(2)/2,
                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     corners = transform * corners;
-     
+
     Eigen::VectorXf distance_array = corners.transpose() * plane;
     return std::min(distance_array.minCoeff(), 0.0f);
 }

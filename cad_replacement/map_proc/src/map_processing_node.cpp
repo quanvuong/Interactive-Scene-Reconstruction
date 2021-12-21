@@ -54,12 +54,12 @@ MapProcessingNode::MapProcessingNode(ros::NodeHandle& node_handle): node_handle_
     // Define ground axis
     ground_axis << 0.0, 0.0, 0.0;
     ground_axis(ground) = 1.0;
-    
+
     // Fill in canonical_base_transforms
     GenerateCanonicalBaseTransforms (canonical_base_transforms);
 
     // PCL viewer
-    viewer = std::make_shared<Viewer> ();       
+    viewer = std::make_shared<Viewer> ();
 }
 
 
@@ -68,86 +68,182 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string, std::
     std::ifstream infile(cad_id_file_);
     std::string line, subline, element;
 
-    std::string cad_id, category_name;
+    std::string dataset, cad_id, category_name;
     std::vector<Eigen::Vector4f> planes;
     Eigen::Vector3f aligned_dims;
+    Eigen::Matrix4f aligned_transform = Eigen::Matrix4f::Identity();
 
-    // Iterate through each line and split the content 
-    std::getline(infile, line);
+    // Iterate through each line and split the content
+    std::getline(infile, line);  // csv header
+    // Check cad_id_file_ format
+    bool isPartNetShapeNet = false;
+    std::stringstream s(line);
+    int i = 0;
+    while (std::getline(s, subline, ','))
+        i++;
+    if (i == 7)
+    {
+        isPartNetShapeNet = true;
+        std::cout << "Loading PartNet and ShapeNet datasets" << std::endl;
+    }
+    else if (i != 4)
+        throw std::domain_error("Unrecognized cad_id_file format");
+
     while (std::getline(infile, line))
     {
-        std::stringstream s(line); 
+        std::stringstream s(line);
         planes.clear();
         int i = 0;
         while (std::getline(s, subline, '"'))
         {
-            switch(i)
-            {
-                case 0: // cad_id and category_name
+            if (isPartNetShapeNet)
+                switch(i)
                 {
-                    std::stringstream ss(subline); 
-                    if (std::getline(ss, element, ','))
+                    case 0: // dataset, cad_id and category_name
                     {
-                        cad_id = element;
-                        if (if_verbose_)
-                            std::cout << "cad_id " << element << std::endl;
-                    }
-                    if (std::getline(ss, element, ','))
-                    {
-                        category_name = element;
-                        if (if_verbose_)
-                            std::cout << "category_name " << element << std::endl;
-                    }
-                    break;
-                }                
-                case 1:  // aligned_dim
-                {
-                    std::stringstream ss(subline); 
-                    int j = 0;
-                    while (std::getline(ss, element, ','))
-                    {
-                        aligned_dims(j) = std::stof(element);
-                        j++;
-                    }
-                    break;
-                }
-                case 3:   //planes
-                {
-                    std::stringstream ss(subline); 
-                    int j = 0;
-                    Eigen::Vector4f plane;
-                    while (std::getline(ss, element, ','))
-                    {
-                        // if (j % 4 == 0)
-                        // {
-                        //     if (if_verbose_)
-                        //         std::cout << "new_plane" << std::endl;
-                        // }
-
-                        plane(j % 4) = std::stof(element);
-
-                        if (j % 4 == 3)
+                        std::stringstream ss(subline);
+                        if (std::getline(ss, element, ','))
                         {
-                            planes.push_back(plane);
-                            // if (if_verbose_)
-                            //     std::cout << "plane" << "  "<< plane(0) << "  "<< plane(1)<< "  " <<plane(2)<< "  " << plane(3) << std::endl;
+                            dataset = element;
+                            if (if_verbose_)
+                                std::cout << "dataset: " << element << std::endl;
                         }
-                        j++;
+                        if (std::getline(ss, element, ','))
+                        {
+                            cad_id = element;
+                            if (if_verbose_)
+                                std::cout << "cad_id " << element << std::endl;
+                        }
+                        if (std::getline(ss, element, ','))
+                        {
+                            category_name = element;
+                            if (if_verbose_)
+                                std::cout << "category_name " << element << std::endl;
+                        }
+                        break;
                     }
-                    break;
+                    case 1:  // transform
+                    {
+                        std::stringstream ss(subline);
+                        float data[16];
+                        int j = 0;
+                        while (std::getline(ss, element, ','))
+                        {
+                            data[j] = std::stof(element);
+                            j++;
+                        }
+                        aligned_transform = Eigen::Map<Eigen::Matrix4f>(data).transpose();
+                        break;
+                    }
+                    // case 2:  // scale ",0.12345,"
+                    case 3:  // aligned_dim
+                    {
+                        std::stringstream ss(subline);
+                        int j = 0;
+                        while (std::getline(ss, element, ','))
+                        {
+                            aligned_dims(j) = std::stof(element);
+                            j++;
+                        }
+                        break;
+                    }
+                    case 5:   //planes
+                    {
+                        std::stringstream ss(subline);
+                        int j = 0;
+                        Eigen::Vector4f plane;
+                        while (std::getline(ss, element, ','))
+                        {
+                            // if (j % 4 == 0)
+                            // {
+                            //     if (if_verbose_)
+                            //         std::cout << "new_plane" << std::endl;
+                            // }
+
+                            plane(j % 4) = std::stof(element);
+
+                            if (j % 4 == 3)
+                            {
+                                planes.push_back(plane);
+                                // if (if_verbose_)
+                                //     std::cout << "plane" << "  "<< plane(0) << "  "<< plane(1)<< "  " <<plane(2)<< "  " << plane(3) << std::endl;
+                            }
+                            j++;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
                 }
-                default:
-                    break;
-            }
+            else  // original csv format
+                switch(i)
+                {
+                    case 0: // cad_id and category_name
+                    {
+                        std::stringstream ss(subline);
+                        if (std::getline(ss, element, ','))
+                        {
+                            cad_id = element;
+                            if (if_verbose_)
+                                std::cout << "cad_id " << element << std::endl;
+                        }
+                        if (std::getline(ss, element, ','))
+                        {
+                            category_name = element;
+                            if (if_verbose_)
+                                std::cout << "category_name " << element << std::endl;
+                        }
+                        break;
+                    }
+                    case 1:  // aligned_dim
+                    {
+                        std::stringstream ss(subline);
+                        int j = 0;
+                        while (std::getline(ss, element, ','))
+                        {
+                            aligned_dims(j) = std::stof(element);
+                            j++;
+                        }
+                        break;
+                    }
+                    case 3:   //planes
+                    {
+                        std::stringstream ss(subline);
+                        int j = 0;
+                        Eigen::Vector4f plane;
+                        while (std::getline(ss, element, ','))
+                        {
+                            // if (j % 4 == 0)
+                            // {
+                            //     if (if_verbose_)
+                            //         std::cout << "new_plane" << std::endl;
+                            // }
+
+                            plane(j % 4) = std::stof(element);
+
+                            if (j % 4 == 3)
+                            {
+                                planes.push_back(plane);
+                                // if (if_verbose_)
+                                //     std::cout << "plane" << "  "<< plane(0) << "  "<< plane(1)<< "  " <<plane(2)<< "  " << plane(3) << std::endl;
+                            }
+                            j++;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
             i++;
         }
 
         // Store into ObjCAD
         ObjCAD::Ptr object_cad = std::make_shared<ObjCAD> (cad_id, category_name, planes, aligned_dims);
+        object_cad->SetAlignedTransform(aligned_transform);
 
         // If choose not to fit CADs for cabinets
         if (!match_cabinet_ && (object_cad->category_name == "Cabinet" ))
-            continue;        
+            continue;
 
         // Add into database
         auto it = cad_database.find(object_cad->category_name);
@@ -205,12 +301,14 @@ void MapProcessingNode::LoadInstanceSegments(const std::unordered_map<std::strin
 
         // Store into Obj3D
         Obj3D::Ptr object = std::make_shared<Obj3D> (instance_label, category_name, cloud, mesh);
-        if (category_name == "Wall") 
+        if (category_name == "Wall")
             wall = object;
 
         object->ComputeBox();
-        
+
         // Prune false detections (small object)
+        // If the observed object's diameter is smaller than 0.4 times the mean diameter of
+        // the CAD models of same category, skip the observed object
         auto cate_it = cad_database.find(object->category_name);
         if (cate_it != cad_database.end())
         {
@@ -228,14 +326,14 @@ void MapProcessingNode::LoadInstanceSegments(const std::unordered_map<std::strin
             min_dim /= (float)k;
 
             if (filter_small_objects_ && object->GetDiameter() < diameter*0.4 )
-                continue;       
+                continue;
         }
 
         // Compute planes and potential supporting planes
         object->ComputePlanes();
         object->ComputePotentialSupportingPlanes();
         objects.push_back(object);
-        
+
         // Visualize plane estimation results
         if (visualize_plane_estimation_)
         {
@@ -254,7 +352,7 @@ void MapProcessingNode::LoadGroundTruthSegments(std::vector<Obj3D::Ptr>& objects
     ReadCloudFromPLY(ground_truth_prefix_ + ".ply", GT_label_cloud);
     pcl::PointCloud<PointTFull>::Ptr GT_full_cloud (new pcl::PointCloud<PointTFull>);
     ReadCloudFromPLY(ground_truth_prefix_ + ".ply", GT_full_cloud, false);
-    
+
     if(GT_label_cloud->points.size() != GT_full_cloud->points.size())
         ROS_ERROR("Error reading point clouds. Number of points inconsistent.");
 
@@ -262,13 +360,13 @@ void MapProcessingNode::LoadGroundTruthSegments(std::vector<Obj3D::Ptr>& objects
 
     TiXmlDocument doc(ground_truth_prefix_ + "_cg.xml");
     bool loadOkay = doc.LoadFile();
-	if (loadOkay)
+    if (loadOkay)
     {
         TiXmlElement *annotation = doc.FirstChildElement("annotation");
         TiXmlNode *label = 0;
         while (label = annotation->IterateChildren(label))
         {
-            std::string str = label->ToElement()->Attribute("id");         
+            std::string str = label->ToElement()->Attribute("id");
             int id = std::stoi(str);
 
             pcl::PointCloud<PointTFull>::Ptr extracted_cloud (new pcl::PointCloud<PointTFull>);
@@ -316,9 +414,9 @@ void MapProcessingNode::LoadGroundTruthSegments(std::vector<Obj3D::Ptr>& objects
         object->ComputePotentialSupportingPlanes();
         objects.push_back(object);
 
-        if (object->category_name == "Wall") 
+        if (object->category_name == "Wall")
             wall = object;
-    }   
+    }
 }
 
 
@@ -329,13 +427,13 @@ void MapProcessingNode::LoadGroundTruthSegments(std::unordered_map<int, OBBox>& 
 
     TiXmlDocument doc(ground_truth_prefix_ + "_cg.xml");
     bool loadOkay = doc.LoadFile();
-	if (loadOkay)
+    if (loadOkay)
     {
         TiXmlElement *annotation = doc.FirstChildElement("annotation");
         TiXmlNode *label = 0;
         while (label = annotation->IterateChildren(label))
         {
-            std::string str = label->ToElement()->Attribute("id");         
+            std::string str = label->ToElement()->Attribute("id");
             int id = std::stoi(str);
             // std::string text_str = label->ToElement()->Attribute("text");
             // if (text_str.size() == 0)
@@ -381,7 +479,7 @@ void MapProcessingNode::DecideSupportingParents (const std::vector<Obj3D::Ptr>& 
 
                 std::vector<std::pair<Eigen::Vector4f, float>> plane_score_vec;
                 ComputeSupportingScores (objects[i], parent_it->second[j], plane_score_vec);
-                
+
                 for (auto score_it = plane_score_vec.begin(); score_it != plane_score_vec.end(); score_it++)
                 {
                     if ((*score_it).second > best_score)
@@ -442,7 +540,7 @@ void MapProcessingNode::DecideSupportingParents (const std::vector<Obj3D::Ptr>& 
 
 void MapProcessingNode::BuildContactGraph (const std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
                                         const std::unordered_map<int, OBBox>& gt_objects, std::queue<Obj3D::Ptr>& obj_to_check, pgm::ParseGraphMap::Ptr& contact_graph)
-{    
+{
     if (contact_graph == nullptr)
     {
         ROS_ERROR("Null contact graph pointer!");
@@ -454,7 +552,7 @@ void MapProcessingNode::BuildContactGraph (const std::unordered_map<Obj3D::Ptr, 
     {
         Obj3D::Ptr current_object = obj_to_check.front();
         obj_to_check.pop(); // Remove current object
-        
+
         // Create and insert node to contact graph
         pgm::ObjectNode::Ptr obj_node = std::make_shared<pgm::ObjectNode> (current_object->id, current_object->category_name);
 
@@ -473,7 +571,7 @@ void MapProcessingNode::BuildContactGraph (const std::unordered_map<Obj3D::Ptr, 
                         label_iou_vec.push_back(std::make_pair(gt_pair.first, iou));
                 }
                 // Sort it
-                auto cmp = [](const auto & a, const auto & b) -> bool { return a.second > b.second;}; 
+                auto cmp = [](const auto & a, const auto & b) -> bool { return a.second > b.second;};
                 std::sort(label_iou_vec.begin(),label_iou_vec.end(), cmp);
             }
             obj_node->setIoUs(label_iou_vec);
@@ -488,7 +586,7 @@ void MapProcessingNode::BuildContactGraph (const std::unordered_map<Obj3D::Ptr, 
         }
         else
             contact_graph->insertNode(parent->id, *obj_node);
-        
+
         // Push child nodes to the queue
         auto parent_it = parent_child_map.find(current_object);
         if (parent_it != parent_child_map.end())
@@ -527,7 +625,7 @@ void MapProcessingNode::ComputeParentCandidates (const std::vector<Obj3D::Ptr>& 
         {
             if (!CheckOverlap2D (objects[i]->GetBox(), objects[j]->GetBox(), ground))
                 continue;
-            
+
             if (objects[j]->GetBottomHeight() < objects[i]->GetBottomHeight())
             {
                 if (!objects[i]->IsLayout())
@@ -567,10 +665,10 @@ void MapProcessingNode::ComputeSupportingScores (const Obj3D::Ptr& child, const 
     {
         ROS_ERROR("Null input object pointer!");
         return;
-    }   
+    }
 
     // Stuffs can't be supported by things
-    if (std::find(layout_class.begin(), layout_class.end(), child->category_name) != layout_class.end() && 
+    if (std::find(layout_class.begin(), layout_class.end(), child->category_name) != layout_class.end() &&
         std::find(layout_class.begin(), layout_class.end(), parent->category_name) == layout_class.end())
         return;
 
@@ -617,7 +715,7 @@ void MapProcessingNode::UpdateObjectsViaSupportingRelations (std::vector<Obj3D::
             }
             // Remove supporting planes from plane list
             current_obj->UpdatePlanesViaSupporting();
-        } 
+        }
     }
 
     if (write_refined_bbox_)
@@ -629,7 +727,7 @@ void MapProcessingNode::UpdateObjectsViaSupportingRelations (std::vector<Obj3D::
             inst_json["semantic_class"] = object->category_name;
 
             OBBox box = object->GetBox();
-            std::vector<float> box_vec = {box.pos(0), box.pos(1), box.pos(2), box.aligned_dims(0), box.aligned_dims(1), box.aligned_dims(2), box.quat.x(), 
+            std::vector<float> box_vec = {box.pos(0), box.pos(1), box.pos(2), box.aligned_dims(0), box.aligned_dims(1), box.aligned_dims(2), box.quat.x(),
                                             box.quat.y(), box.quat.z(), box.quat.w()};
             inst_json["refined_box"] = box_vec;
             output_json[std::to_string(object->id)] = inst_json;
@@ -654,7 +752,7 @@ void MapProcessingNode::MatchCADToSegmentsCoarse (const std::vector<Obj3D::Ptr>&
     {
         std::string category = objects[i]->category_name;
         std::cout << category << objects[i]->id << std::endl;
-        
+
         auto cate_it = cad_database.find(category);
         if (cate_it != cad_database.end())
         {
@@ -672,7 +770,7 @@ void MapProcessingNode::MatchCADToSegmentsCoarse (const std::vector<Obj3D::Ptr>&
             GetCanonicalTransforms (canonical_base_transforms, init_transform, canonical_transforms); // world to potential canonical object poses
             std::vector<std::vector<Eigen::Vector4f>> canonical_transformed_planes;
             BatchTransformPlanesGlobalToLocal(planes, canonical_transforms, canonical_transformed_planes); // transform all planes into local frame with all canonical transformations
-            
+
             // Compute normalized dimensions, planes (by diameter)
             Eigen::Vector3f normalized_dims = box.aligned_dims / diameter;
             for (auto& planes: canonical_transformed_planes)
@@ -683,7 +781,7 @@ void MapProcessingNode::MatchCADToSegmentsCoarse (const std::vector<Obj3D::Ptr>&
             Eigen::Vector3f closest_wall_normal;
             float min_dist = 10;
             if (wall != nullptr)
-            {                
+            {
                 for (const auto& plane: wall->GetPlanes())
                 {
                     Eigen::MatrixXf generalized_corners = objects[i]->GetBoxCorners4D();
@@ -700,10 +798,10 @@ void MapProcessingNode::MatchCADToSegmentsCoarse (const std::vector<Obj3D::Ptr>&
             // Loop over all available CAD models in the same class and compute coarse matching error
             std::vector<ObjCADCandidate::Ptr> cad_candidates;
             for (int j = 0; j < cate_it->second.size(); j++)
-            { 
-                // For each CAD model   
-                ObjCAD::Ptr cad = cate_it->second[j];         
-                std::unordered_map<int, float> pose_error_map; 
+            {
+                // For each CAD model
+                ObjCAD::Ptr cad = cate_it->second[j];
+                std::unordered_map<int, float> pose_error_map;
                 std::unordered_map<int, std::vector<int>> pose_supporting_plane_map;
                 std::unordered_map<int, std::vector<int>> pose_plane_map;
 
@@ -730,11 +828,11 @@ void MapProcessingNode::MatchCADToSegmentsCoarse (const std::vector<Obj3D::Ptr>&
                                                                                                 pose_plane_map[pose_index], scale);
                         cad_candidates.push_back(cad_candidate);
                     }
-                } 
+                }
             }
-            
+
             // Sort in ascenting order of coarse matching error
-            auto cmp = [](const ObjCADCandidate::Ptr & a, const ObjCADCandidate::Ptr & b) -> bool { return a->GetCoarseMatchingError() < b->GetCoarseMatchingError();}; 
+            auto cmp = [](const ObjCADCandidate::Ptr & a, const ObjCADCandidate::Ptr & b) -> bool { return a->GetCoarseMatchingError() < b->GetCoarseMatchingError();};
             std::sort(cad_candidates.begin(), cad_candidates.end(), cmp);
             cad_candidates_map.insert(std::make_pair(objects[i], cad_candidates));
 
@@ -760,8 +858,8 @@ void MapProcessingNode::ComputeDimsMatchingError (const Eigen::Vector3f object_n
         Eigen::Vector3f transformed_cad_dims = (canonical_base_transforms[i].topLeftCorner(3, 3) * cad->GetDims()).cwiseAbs();
         Eigen::Vector3f cad_dim_ratio = transformed_cad_dims / cad->GetDiameter();
         Eigen::Vector3f object_dim_ratio = object_normalized_dims;
-        float error = std::abs(cad_dim_ratio(0) - object_dim_ratio(0)) + std::abs(cad_dim_ratio(1) - object_dim_ratio(1)) 
-                                    + std::abs(cad_dim_ratio(2) - object_dim_ratio(2));        
+        float error = std::abs(cad_dim_ratio(0) - object_dim_ratio(0)) + std::abs(cad_dim_ratio(1) - object_dim_ratio(1))
+                                    + std::abs(cad_dim_ratio(2) - object_dim_ratio(2));
         matching_errors.insert(std::make_pair(i, error));
     }
 }
@@ -777,7 +875,7 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError (const std::vector<s
     }
     if (supporting_planes.size() == 0)
         return;
-        
+
     for (auto it = matching_errors.begin(); it != matching_errors.end(); )
     {
         // For each pose
@@ -828,7 +926,7 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError (const std::vector<s
 
             for (int p = 0; p < obj_to_cad.size(); p++)
                 obj_to_cad_global.push_back(plane_height_ratios[obj_to_cad[p]].first);
-            
+
             // Averaged for all planes
             it->second += supporting_plane_error / (float)supporting_planes.size();
             pose_supporting_plane_map.insert(std::make_pair(index, obj_to_cad_global));
@@ -838,7 +936,7 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError (const std::vector<s
 }
 
 
-void MapProcessingNode::ComputePlaneMatchingError (const std::vector<std::vector<Eigen::Vector4f>>& canonical_transformed_planes, const ObjCAD::Ptr& cad, 
+void MapProcessingNode::ComputePlaneMatchingError (const std::vector<std::vector<Eigen::Vector4f>>& canonical_transformed_planes, const ObjCAD::Ptr& cad,
                                         std::unordered_map<int, float>& matching_errors, std::unordered_map<int, std::vector<int>>& pose_plane_map)
 {
     if (cad == nullptr)
@@ -883,9 +981,9 @@ void MapProcessingNode::ComputePlaneMatchingError (const std::vector<std::vector
             std::vector<int> obj_to_cad;
             float plane_error = MinCostMatchingNonSquare(cost_matrix, obj_to_cad);
             // Averaged for all planes
-            it->second += plane_error / (float)obj_transformed_planes.size();  
-            pose_plane_map.insert(std::make_pair(index, obj_to_cad));        
-        }   
+            it->second += plane_error / (float)obj_transformed_planes.size();
+            pose_plane_map.insert(std::make_pair(index, obj_to_cad));
+        }
         it ++;
     }
 }
@@ -898,7 +996,7 @@ bool MapProcessingNode::ValidateSupportedArea (const ObjCADCandidate::Ptr& cad_c
         ROS_ERROR("Null input pointer!");
         return false;
     }
- 
+
     ObjCAD::Ptr cad = cad_candidate->GetCADPtr();
     Eigen::Matrix4f current_transform = cad_candidate->GetTransform();  // Get world-object transform
     pcl::PointCloud<PointT>::Ptr transformed_cloud = cad_candidate->GetTransformedSampledCloudPtr(); // Load transformed sampled cloud of CAD
@@ -906,7 +1004,7 @@ bool MapProcessingNode::ValidateSupportedArea (const ObjCADCandidate::Ptr& cad_c
     if (abs(1.0-ground_axis.transpose() * canonical_base_transforms[cad_candidate->GetPoseID()].col(2).head(3)) < 0.01)
         return true;
     else
-    {        
+    {
         Eigen::Vector3f transformed_dims = (canonical_base_transforms[cad_candidate->GetPoseID()].topLeftCorner(3, 3) * cad->GetDims()).cwiseAbs();
         // float bottom_height = cad_candidate->GetObjPtr()->GetBottomHeight();
         float bottom_height = current_transform(ground, 3) - transformed_dims(ground) / 2;
@@ -930,10 +1028,10 @@ bool MapProcessingNode::ValidateSupportedArea (const ObjCADCandidate::Ptr& cad_c
         float supported_area = std::abs((max_point((ground+1)%3) - min_point((ground+1)%3)) * (max_point((ground+2)%3) - min_point((ground+2)%3)));
         float supported_area_ratio = supported_area / (transformed_dims((ground+1)%3)*transformed_dims((ground+2)%3));
 
-        if (supported_area_ratio < min_valid_area) 
+        if (supported_area_ratio < min_valid_area)
             return false;
         else
-            return true;   
+            return true;
     }
 }
 
@@ -945,7 +1043,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
         ROS_ERROR("Null input pointer!");
         return false;
     }
-    
+
     Obj3D::Ptr object = cad_candidate->GetObjPtr();
     ObjCAD::Ptr cad = cad_candidate->GetCADPtr();
     Eigen::Matrix4f current_transform = cad_candidate->GetTransform();  // Get world-object transform
@@ -962,7 +1060,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
         {
             Eigen::Vector4f current_plane = TransformPlaneLocalToGlobal(cad->GetPlanes()[j], current_transform);
             if (IsSupportingPlane(current_plane, ground_axis))
-            {       
+            {
                 pcl::ExtractIndices<PointT> extract;
                 pcl::PointIndices::Ptr plane_inliers (new pcl::PointIndices);
                 pcl::PointIndices::Ptr above_plane_inliers (new pcl::PointIndices);
@@ -987,7 +1085,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
                 extract.setIndices (above_plane_inliers);
                 extract.setNegative (false);
                 extract.filter (*above_supporting_plane_cloud);
-        
+
                 cad_transformed_supporting_planes.push_back(std::make_pair(j, current_plane));
                 cad_plane_clouds.push_back(std::make_pair(j, cad_supporting_plane_cloud));
                 cad_above_plane_clouds.push_back(std::make_pair(j, above_supporting_plane_cloud));
@@ -1015,7 +1113,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
             }
             cost_matrix.push_back(cost_vec);
         }
-        
+
         // Supporting plane affordance-aware optimal matching
         bool valid_match = false;
         std::vector<int> obj_to_cad;
@@ -1029,10 +1127,10 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
             {
                 // No valid match for the cad
                 valid_match = false;
-                break;                
+                break;
             }
             // Validate supporting affordance for each supporting child
-            std::unordered_map<int, int> invalid_supporting_plane_match; 
+            std::unordered_map<int, int> invalid_supporting_plane_match;
             std::set<int> invalid_current_check;
             std::vector<OBBox> boxes;
 
@@ -1051,7 +1149,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
                         valid_match = false;
                     }
                 }
-            }            
+            }
             // Update cost matrix
             for (auto invalid_it = invalid_supporting_plane_match.begin(); invalid_it != invalid_supporting_plane_match.end(); invalid_it++)
                 cost_matrix[invalid_it->first][invalid_it->second] = 100.0;
@@ -1063,7 +1161,7 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
             std::vector<int> obj_to_cad_global;
             for (int p = 0; p < obj_to_cad.size(); p++)
                 obj_to_cad_global.push_back(cad_transformed_supporting_planes[obj_to_cad[p]].first);
-            
+
             cad_candidate->SetSupportingPlaneMatch(obj_to_cad_global);
             return true;
         }
@@ -1071,10 +1169,10 @@ bool MapProcessingNode::ValidateSupportingAffordance (ObjCADCandidate::Ptr& cad_
             return false;
     }
     else
-        return true;  // If no supporting planes 
+        return true;  // If no supporting planes
 }
 
-bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& supporting_plane, const pcl::PointCloud<PointT>::Ptr& plane_cloud, 
+bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& supporting_plane, const pcl::PointCloud<PointT>::Ptr& plane_cloud,
                                             const pcl::PointCloud<PointT>::Ptr& above_plane_cloud, const Obj3D::Ptr& child)
 {
     if (child == nullptr)
@@ -1111,7 +1209,7 @@ bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& suppor
     std::vector<float> len_v_vec;
     for (int i = 0; i < plane_cloud->points.size(); i += 1)
     {
-        Eigen::Vector3f point (plane_cloud->points[i].x, plane_cloud->points[i].y, plane_cloud->points[i].z);         
+        Eigen::Vector3f point (plane_cloud->points[i].x, plane_cloud->points[i].y, plane_cloud->points[i].z);
         Eigen::Vector2f point_2d (point((ground+1)%3), point((ground+2)%3));
         Eigen::Vector2f vect = point_2d - child_center;
         float len_u = vect.transpose()*child_u;
@@ -1128,7 +1226,7 @@ bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& suppor
                 min_len_v = len_v;
         }
     }
-    
+
     if ((max_len_u > min_len_u) && (max_len_v > min_len_v))
         if ((max_len_u - min_len_u)*(max_len_v - min_len_v) / (child_half_dim_2d(0)*child_half_dim_2d(1)*4.0) > 0.0)
             valid_supporting_area = true;
@@ -1141,7 +1239,7 @@ bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& suppor
         {
             Eigen::Vector3f point (above_plane_cloud->points[i].x, above_plane_cloud->points[i].y, above_plane_cloud->points[i].z);
             if (point(ground) - bottom_height < ground_dim)
-            {            
+            {
                 Eigen::Vector2f point_2d (point((ground+1)%3), point((ground+2)%3));
                 Eigen::Vector2f vect = point_2d - child_center;
                 float len_u = vect.transpose()*child_u;
@@ -1150,7 +1248,7 @@ bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& suppor
                 {
                     valid_supporting_space = false;
                     break;
-                } 
+                }
             }
         }
     }
@@ -1158,7 +1256,7 @@ bool MapProcessingNode::CheckSupportingAffordance (const Eigen::Vector4f& suppor
 }
 
 
-void MapProcessingNode::ComputePotentialCollisionPairs (const std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates, 
+void MapProcessingNode::ComputePotentialCollisionPairs (const std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
                                                         std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map)
 {
     std::vector<Obj3D::Ptr> objects;
@@ -1184,7 +1282,7 @@ void MapProcessingNode::ComputePotentialCollisionPairs (const std::unordered_map
                     {
                         std::unordered_map<Obj3D::Ptr, float> collision_map = {std::make_pair(object_2, overlap_ratio)};
                         possible_collision_map.insert(std::make_pair(object_1, collision_map));
-                    }  
+                    }
                 }
             }
         }
@@ -1193,7 +1291,7 @@ void MapProcessingNode::ComputePotentialCollisionPairs (const std::unordered_map
 
 
 void MapProcessingNode::MatchCADToSegmentsFine (const std::vector<Obj3D::Ptr>& objects, std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates)
-{    
+{
     for (auto& obj_candidates_pair: cad_selected_candidates)
     {
         Obj3D::Ptr object = obj_candidates_pair.first;
@@ -1267,8 +1365,8 @@ void MapProcessingNode::MatchCADToSegmentsFine (const std::vector<Obj3D::Ptr>& o
                     planes_wall.col(k) = planes[k];
 
                 error_functor.planes_wall = planes_wall;
-                error_functor.w = w;
             }
+            error_functor.w = w;
             error_functor.N = m + 2*n + w + 10;
 
             // Parameters to be optimized and their initial value
@@ -1282,7 +1380,7 @@ void MapProcessingNode::MatchCADToSegmentsFine (const std::vector<Obj3D::Ptr>& o
             Eigen::VectorXf x = x_0;
             Eigen::LevenbergMarquardt<FineAlignmentError, float> lm(error_functor);
             lm.parameters.maxfev = 1000;
-	        int status = lm.minimize(x);
+            int status = lm.minimize(x);
 
             Eigen::VectorXf result;
             error_functor (x, result);
@@ -1297,7 +1395,7 @@ void MapProcessingNode::MatchCADToSegmentsFine (const std::vector<Obj3D::Ptr>& o
             ae += lambda_ * candidate->GetCoarseMatchingError();
             candidate->SetFineMatchingError (ae);
         }
-        auto cmp = [](const ObjCADCandidate::Ptr & a, const ObjCADCandidate::Ptr & b) -> bool { return a->GetFineMatchingError() < b->GetFineMatchingError();}; 
+        auto cmp = [](const ObjCADCandidate::Ptr & a, const ObjCADCandidate::Ptr & b) -> bool { return a->GetFineMatchingError() < b->GetFineMatchingError();};
         std::sort(obj_candidates_pair.second.begin(), obj_candidates_pair.second.end(), cmp);
 
         if (visualize_optimized_alignment_)
@@ -1337,13 +1435,13 @@ float MapProcessingNode::ComputeAlignmentError (const Obj3D::Ptr& object, ObjCAD
 
     // Transformed cad mesh
     pcl::PolygonMesh::Ptr mesh = cad_candidate->GetTransformedMeshPtr();
-    
-    float align_error = ComputePointCloudToMeshError(*(object->GetPointCloudPtr()), *mesh); 
+
+    float align_error = ComputePointCloudToMeshError(*(object->GetPointCloudPtr()), *mesh);
     return align_error;
 }
 
 
-void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects, std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates, 
+void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects, std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
                                                         const std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map, std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate)
 {
     bool if_wall_constraint = false;
@@ -1438,7 +1536,7 @@ void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects
                     objects_viz.push_back(objects[i]->GetBox());
                 }
                 id.push_back(objects[i]->id);
-                
+
             }
             viewer->AddPolygonMeshes (meshes, id);
             viewer->AddCubes (objects_viz);
@@ -1464,7 +1562,7 @@ void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects
         for (int i = 0; i < candidates.size(); i++)
         {
             std::vector<Obj3D::Ptr> current_collided_objects;
-            float collision_penetration = RecomputeCollision (current_object, candidates[i], map_candidate, possible_collision_map.find(current_object)->second, 
+            float collision_penetration = RecomputeCollision (current_object, candidates[i], map_candidate, possible_collision_map.find(current_object)->second,
                                                     current_collided_objects);
             if (collision_penetration < min_collision_penetration)
             {
@@ -1479,14 +1577,14 @@ void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects
             map_candidate.find(current_object)->second = best_candidate;
             for (auto& collided_pair: collided_pairs)
             {
-                if (collided_pair.first == current_object) 
+                if (collided_pair.first == current_object)
                     collided_pair.second = best_collided_objects;
                 else if (std::find(best_collided_objects.begin(), best_collided_objects.end(), collided_pair.first) != best_collided_objects.end())
                 {
                     if (std::find(collided_pair.second.begin(), collided_pair.second.end(), current_object) == collided_pair.second.end())
                         collided_pair.second.push_back(current_object);
                 }
-                else 
+                else
                 {
                     auto it = std::find(collided_pair.second.begin(), collided_pair.second.end(), current_object);
                     if (it != collided_pair.second.end())
@@ -1522,18 +1620,18 @@ void MapProcessingNode::GlobalRegulation (const std::vector<Obj3D::Ptr>& objects
 
 
 bool MapProcessingNode::ValidateWallConstraint (const std::vector<Eigen::Vector4f>& wall_planes, const ObjCADCandidate::Ptr& cad_candidate)
-{    
+{
     for (int i = 0; i < wall_planes.size(); i++)
-    {        
+    {
         Eigen::VectorXf distance_array = cad_candidate->GetAlignedBoxCorners4D().transpose() * wall_planes[i];
         if ((distance_array.maxCoeff() * distance_array.minCoeff() < 0) && std::min(distance_array.maxCoeff(), -distance_array.minCoeff()) > 0.15)
-            return false;            
+            return false;
     }
-    return true;    
+    return true;
 }
 
 
-void MapProcessingNode::ComputeCollision (const std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate, const std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map, 
+void MapProcessingNode::ComputeCollision (const std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate, const std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map,
                                                                 std::unordered_map<Obj3D::Ptr, std::vector<Obj3D::Ptr>>& collided_pairs, std::set<Obj3D::Ptr>& collided_objects)
 {
     ROS_INFO("Start collision check!");
@@ -1551,13 +1649,13 @@ void MapProcessingNode::ComputeCollision (const std::unordered_map<Obj3D::Ptr, O
                 auto check_it = map_candidate.find(object_to_check);
                 if (check_it == map_candidate.end())
                     continue;
-                
+
                 pcl::PolygonMesh::Ptr candidate_mesh_2 = check_it->second->GetTransformedMeshPtr();
 
                 std::vector<Eigen::Vector3f> contact_locations;
                 std::vector<float> penetration_depths;
 
-                ros::Time start = ros::Time::now();                
+                ros::Time start = ros::Time::now();
 
                 if (ComputeMeshMeshCollision(candidate_mesh_1, candidate_mesh_2, contact_locations, penetration_depths))
                 {
@@ -1580,7 +1678,7 @@ void MapProcessingNode::ComputeCollision (const std::unordered_map<Obj3D::Ptr, O
 }
 
 
-float MapProcessingNode::RecomputeCollision (const Obj3D::Ptr& object, const ObjCADCandidate::Ptr& cad_candidate, const std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate, 
+float MapProcessingNode::RecomputeCollision (const Obj3D::Ptr& object, const ObjCADCandidate::Ptr& cad_candidate, const std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate,
                                                 const std::unordered_map<Obj3D::Ptr, float>& possible_collided_objects, std::vector<Obj3D::Ptr>& collided_objects)
 {
     float total_penetration = 0.0f;
@@ -1615,6 +1713,7 @@ void MapProcessingNode::FillContactGraph (const std::vector<Obj3D::Ptr>& objects
     std::vector<std::pair<Obj3D::Ptr, std::pair<Eigen::Vector4f, Eigen::Matrix4f>>> obj_to_check;
     // Fill contact graph a top-down manner (spatially bottom-up)
     for (int i = 0; i < objects.size(); i++)
+        // Only include nodes without supporting parent, e.g. Floor, Background
         if (objects[i]->GetSupportingParent().first == nullptr)
             obj_to_check.push_back(std::make_pair(objects[i], std::make_pair(objects[i]->GetSupportingParent().second, Eigen::Matrix4f::Identity())));
 
@@ -1633,17 +1732,17 @@ void MapProcessingNode::FillContactGraph (const std::vector<Obj3D::Ptr>& objects
             ObjCADCandidate::Ptr candidate = obj_it->second;
             ObjCAD::Ptr cad = candidate->GetCADPtr();
             Eigen::Vector3f transformed_dims = candidate->GetScale() * (canonical_base_transforms[candidate->GetPoseID()].topLeftCorner(3, 3) * cad->GetDims()).cwiseAbs();
-            
+
             // Adjust height according to the supported plane of parent
             candidate->SetHeight(-supported_plane(3) + transformed_dims(ground)/2);
             // Transform without/with scale
-            Eigen::Matrix4f transform_no_scale = candidate->GetTransform(false);
+            Eigen::Matrix4f transform_no_scale = candidate->GetTransform(false, false);
             Eigen::Matrix4f transform = candidate->GetTransform();
 
             Eigen::Matrix4f relative_transform = parent_transform.inverse() * transform_no_scale;
             Eigen::Quaternionf quat(relative_transform.topLeftCorner<3, 3>());
             pgm::Point pos (relative_transform(0, 3), relative_transform(1, 3),relative_transform(2, 3));
-            pgm::Quaternion quaternion (quat.x(), quat.y(), quat.z(), quat.w());            
+            pgm::Quaternion quaternion (quat.x(), quat.y(), quat.z(), quat.w());
 
             std::cout << current_object->category_name << current_object->id << std::endl;
             object_node->setCadID(cad->cad_id);
@@ -1665,7 +1764,7 @@ void MapProcessingNode::FillContactGraph (const std::vector<Obj3D::Ptr>& objects
                             label_iou_vec.push_back(std::make_pair(gt_pair.first, iou));
                     }
                     // Sort it
-                    auto cmp = [](const auto & a, const auto & b) -> bool { return a.second > b.second;}; 
+                    auto cmp = [](const auto & a, const auto & b) -> bool { return a.second > b.second;};
                     std::sort(label_iou_vec.begin(),label_iou_vec.end(), cmp);
                 }
                 object_node->setIoUs(label_iou_vec);
@@ -1680,7 +1779,7 @@ void MapProcessingNode::FillContactGraph (const std::vector<Obj3D::Ptr>& objects
                 obj_to_check.push_back(std::make_pair(child_object, std::make_pair(transformed_supporting_plane, transform_no_scale)));
             }
         }
-        else
+        else  // No CAD candidate
         {
             for (const auto child: current_object->GetSupportingChildren())
             {
@@ -1690,7 +1789,7 @@ void MapProcessingNode::FillContactGraph (const std::vector<Obj3D::Ptr>& objects
             }
         }
         obj_to_check.erase(obj_to_check.begin());
-    }  
+    }
 
     if (if_verbose_)
     {
@@ -1726,7 +1825,7 @@ void MapProcessingNode::Run()
     ROS_INFO("Load CAD database...");
     std::unordered_map<std::string, std::vector<ObjCAD::Ptr>> cad_database;
     LoadObjectDatabase (cad_database);
-    
+
     //// Load map object segments
     std::vector<Obj3D::Ptr> objects;
     // if (match_ground_truth_ && ground_truth_prefix_.size() > 0)
@@ -1739,7 +1838,7 @@ void MapProcessingNode::Run()
         ROS_INFO("Load panoptic segments...");
         LoadInstanceSegments(cad_database, objects);
     // }
-    
+
     //// Load ground truth (if available)
     std::unordered_map<int, OBBox> gt_objects;
     // if (ground_truth_prefix_.size() > 0)
@@ -1780,7 +1879,7 @@ void MapProcessingNode::Run()
     BuildContactGraph (parent_child_map, gt_objects, obj_to_check, contact_graph);
     if (contact_graph->getNodes().size() != objects.size()+1)
         ROS_ERROR("Missing object nodes in the contact graph!");
-    
+
     if (save_contact_graph_)
     {
         std::string str_out = contact_graph->dump();
@@ -1788,7 +1887,7 @@ void MapProcessingNode::Run()
         std::string path = output_folder_ + "/contact_graph";
         makePath(path, 0777);
         contact_graph->save(path + "/contact_graph_seg.json");
-    }  
+    }
 
     if (match_cad_)
     {
@@ -1797,31 +1896,33 @@ void MapProcessingNode::Run()
         ROS_INFO("Match instance segments to CAD...");
         std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>> cad_candidates_map;
         MatchCADToSegmentsCoarse (objects, cad_database, cad_candidates_map);
-        
+
 
         //// Validate physics and supporting affordance, and return k best candidates for each map object
         ROS_INFO("Prune CAD candidates using supporting affordance...");
         std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>> cad_selected_candidates;
         for (auto& cad_candidates_pair: cad_candidates_map)
-        {    
-            std::cout << cad_candidates_pair.first->category_name << cad_candidates_pair.first->id << std::endl;
-            int count = 0; 
+        {
+            std::cout << cad_candidates_pair.first->category_name << cad_candidates_pair.first->id << ": ";
+            int count = 0;
             std::vector<ObjCADCandidate::Ptr> candidate_vec;
             for (auto& candidate: cad_candidates_pair.second)
-            {           
+            {
                 // Check supported area & supporting affordance
                 if (!ValidateSupportedArea (candidate, 0.3))
                     continue;
                 else if (ValidateSupportingAffordance (candidate))
                 {
                     candidate_vec.push_back(candidate);
-                    count ++;                
+                    count ++;
+                    std::cout << candidate->GetCADPtr()->cad_id << " ";
                 }
 
                 if (count > k_cad_candidates_)
                     break;
             }
             cad_selected_candidates.insert(std::make_pair(cad_candidates_pair.first, candidate_vec));
+            std::cout << std::endl;
         }
 
 
@@ -1848,7 +1949,7 @@ void MapProcessingNode::Run()
             std::string path = output_folder_ + "/contact_graph";
             makePath(path, 0777);
             contact_graph->save(path + "/contact_graph_cad.json");
-        }  
+        }
 
         //// Visualize the scene
         ROS_INFO ("Visualize scene!");
@@ -1875,8 +1976,8 @@ void MapProcessingNode::Run()
         viewer->AddCubes (objects_viz);
         viewer->VisualizeOnce (id);
     }
-    
-    ROS_INFO("Sucess!");
+
+    ROS_INFO("Success!");
 }
 
 }

@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <vector>
-#include <cmath>  
+#include <cmath>
 #include <sys/stat.h>
 
 #include <ros/ros.h>
@@ -20,14 +20,14 @@
 
 namespace MapProcessing
 {
-    
+
 using PointT = pcl::PointXYZ;
 using PointTFull = pcl::PointXYZRGBNormal;
 using PointTLabel = pcl::PointXYZRGBL;
 
 struct OBBox{
     Eigen::Vector3f pos; // x,y,z in world frame
-    Eigen::Vector3f aligned_dims; 
+    Eigen::Vector3f aligned_dims;
     Eigen::Quaternionf quat; // x,y,z,w
 };
 

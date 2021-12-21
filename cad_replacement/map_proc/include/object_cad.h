@@ -22,7 +22,7 @@ public:
     using Ptr = std::shared_ptr<Obj3D>;
 
     // Constructor
-    Obj3D(int ID, std::string category, pcl::PointCloud<PointTFull>::Ptr cloud_input, pcl::PolygonMesh::Ptr mesh_input = nullptr): 
+    Obj3D(int ID, std::string category, pcl::PointCloud<PointTFull>::Ptr cloud_input, pcl::PolygonMesh::Ptr mesh_input = nullptr):
         id(ID), category_name(category), mesh(mesh_input), cloud(cloud_input){};
 
     // Check if layout class
@@ -55,7 +55,7 @@ public:
     OBBox GetBox() {return box;}
     float GetDiameter() {return diameter;}
     float GetBottomHeight() {return bottom_height;}
-    float GetTopHeight() {return top_height;}  
+    float GetTopHeight() {return top_height;}
     std::pair<Obj3D::Ptr, Eigen::Vector4f> GetSupportingParent() {return supporting_parent;}
     std::unordered_map<Obj3D::Ptr, int> GetSupportingChildren() {return supporting_children;}
 
@@ -72,7 +72,7 @@ public:
         supporting_children.clear();
         supporting_planes.clear();
     }
-    void UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane); 
+    void UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane);
 
     // Remove supporting planes from plane list (separate for further processing)
     void UpdatePlanesViaSupporting();
@@ -85,8 +85,8 @@ public:
     std::string category_name;
 
 
-private:   
-    OBBox box;    
+private:
+    OBBox box;
     std::vector<Eigen::Vector4f> planes; // a,b,c,d
     std::vector<Eigen::Vector4f> potential_supporting_planes; // a,b,c,d
     std::vector<std::pair<float, Eigen::Vector4f>> supporting_planes; // plane_height_ratio , (a,b,c,d)
@@ -100,7 +100,7 @@ private:
     float diameter;
 };
 
-    
+
 // CAD object in the database
 class ObjCAD{
 public:
@@ -111,18 +111,20 @@ public:
         cad_id(id), category_name(category), planes(planes_input), aligned_dims(dims)
     {
         diameter = sqrt(dims.transpose() * dims);
+        aligned_transform = Eigen::Matrix4f::Identity();
     }
 
     // Get private variables
     Eigen::Vector3f GetDims() {return aligned_dims;}
     float GetDiameter() {return diameter;}
     std::vector<Eigen::Vector4f> GetPlanes() {return planes;}
-    pcl::PolygonMesh::Ptr GetMeshPtr() 
+    Eigen::Matrix4f GetAlignedTransform() {return aligned_transform;}
+    pcl::PolygonMesh::Ptr GetMeshPtr()
     {
         if (mesh == nullptr)
         {
             mesh.reset (new pcl::PolygonMesh);
-            ReadMeshFromOBJ (cad_database_path + "/" + cad_id + ".obj", mesh);      
+            ReadMeshFromOBJ (cad_database_path + "/" + cad_id + ".obj", mesh);
         }
         return mesh;
     }
@@ -141,6 +143,7 @@ public:
     }
 
     // Set private variables
+    void SetAlignedTransform(const Eigen::Matrix4f& transform) {aligned_transform = transform;}
     void SetMeshPtr(pcl::PolygonMesh::Ptr mesh_ptr) {mesh = mesh_ptr;}
 
     std::string cad_id;
@@ -149,6 +152,7 @@ public:
 private:
     std::vector<Eigen::Vector4f> planes;
     Eigen::Vector3f aligned_dims;
+    Eigen::Matrix4f aligned_transform; // No scale, T_aligned_orig
     float diameter;
 
     pcl::PolygonMesh::Ptr mesh;
@@ -179,9 +183,9 @@ public:
     float GetFineMatchingError() {return fine_matching_error;}
     std::vector<int> GetSupportingPlaneMatch() {return supporting_plane_matching_index;};
     std::vector<int> GetPlaneMatch() {return plane_matching_index;};
-    
+
     // Get transform in world frame
-    Eigen::Matrix4f GetTransform (bool with_scale = true);
+    Eigen::Matrix4f GetTransform (bool with_scale = true, bool aligned_trans = true);
     // Get aligned box
     OBBox GetAlignedBox ();
     // Get aligned box corners in generalized coordinate
@@ -198,7 +202,7 @@ public:
 
     // Set absolute height
     void SetHeight(float h) {absolute_height = h; set_absolute_height = true;}
-    
+
 
 private:
     Obj3D::Ptr object;

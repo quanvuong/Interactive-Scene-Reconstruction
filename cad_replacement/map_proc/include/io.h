@@ -94,7 +94,7 @@ void FilterPCVoxelGrid(pcl::PointCloud<PointTFull>::Ptr& cloud, pcl::PointCloud<
     }
 
     if (cloud->points.size() > 0)
-    {   
+    {
         pcl::VoxelGrid<PointTFull> vg;
         vg.setLeafSize (leaf_size, leaf_size, leaf_size);
         vg.setInputCloud (cloud);
@@ -131,7 +131,7 @@ bool ReadMeshFromPLY (const std::string& file_name, pcl::PolygonMesh::Ptr& mesh)
 
     std::fstream fileStream(file_name);
     // fileStream.open(file_name);
-    if (!fileStream.is_open()) 
+    if (!fileStream.is_open())
     {
         ROS_ERROR("Fail to open file!");
         return false;
@@ -160,7 +160,7 @@ bool ReadCloudFromPLY (const std::string& file_name, pcl::PointCloud<PointTFull>
 
     std::fstream fileStream;
     fileStream.open(file_name);
-    if (fileStream.fail()) 
+    if (fileStream.fail())
     {
         ROS_ERROR("Fail to load point cloud!");
         return false;
@@ -177,7 +177,7 @@ bool ReadCloudFromPLY (const std::string& file_name, pcl::PointCloud<PointTFull>
             if (if_filter)
                 FilterPCVoxelGrid(cloud, cloud, leaf_size);
             return true;
-        }  
+        }
     }
 }
 
@@ -192,7 +192,7 @@ bool ReadCloudFromPLY (const std::string& file_name, pcl::PointCloud<PointTLabel
 
     std::fstream fileStream;
     fileStream.open(file_name);
-    if (fileStream.fail()) 
+    if (fileStream.fail())
     {
         ROS_ERROR("Fail to load point cloud!");
         return false;
@@ -238,7 +238,7 @@ bool ReadMeshFromOBJ (const std::string& file_name, pcl::PolygonMesh::Ptr& mesh)
 
     std::fstream fileStream;
     fileStream.open(file_name);
-    if (fileStream.fail()) 
+    if (fileStream.fail())
     {
         ROS_ERROR("Fail to open file!");
         return false;

@@ -18,7 +18,7 @@ std::string cad_database_path;
 const std::vector<std::string> layout_class = {"Background", "Floor", "Wall", "Ceiling"};
 
 
-void Obj3D::ComputeBox() 
+void Obj3D::ComputeBox()
 {
     ComputeGroundOrientedBoundingBox(cloud, box, ground);
     diameter = sqrt(box.aligned_dims.transpose() * box.aligned_dims);
@@ -39,13 +39,13 @@ Eigen::MatrixXf Obj3D::GetBoxCorners4D ()
                aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     corners = transform * corners;
-    
+
     return corners;
 }
 
 
 void Obj3D::ComputePlanes()
-{        
+{
     planes.clear();
     float distance_threshood = 0.03;
     if (box.aligned_dims.minCoeff()/4 < distance_threshood)
@@ -82,7 +82,7 @@ void Obj3D::ComputeSupportDistance(float child_bottom_height, std::vector<std::p
 }
 
 
-void Obj3D::RefineAsSupportingChild() 
+void Obj3D::RefineAsSupportingChild()
 {
     if (supporting_parent.first == nullptr)
     {
@@ -97,18 +97,18 @@ void Obj3D::RefineAsSupportingChild()
     bottom_height = plane_height;
 }
 
-void Obj3D::UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane) 
+void Obj3D::UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane)
 {
     float plane_height = - supporting_plane(3);
     float supporting_plane_height_ratio = (plane_height - bottom_height)/box.aligned_dims(ground);
-    auto it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f) 
+    auto it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f)
                                                     { return (std::abs(f.first-supporting_plane_height_ratio) < 0.05);});
     if (it != supporting_planes.end())
-        supporting_children.insert(std::make_pair(child, it-supporting_planes.begin()));  
+        supporting_children.insert(std::make_pair(child, it-supporting_planes.begin()));
     else
     {
         supporting_planes.push_back(std::make_pair(supporting_plane_height_ratio, supporting_plane));
-        supporting_children.insert(std::make_pair(child, supporting_planes.size()-1));  
+        supporting_children.insert(std::make_pair(child, supporting_planes.size()-1));
     }
 }
 
@@ -119,7 +119,7 @@ void Obj3D::UpdatePlanesViaSupporting()
     {
         if (IsSupportingPlane (*plane_it, ground_axis))
         {
-            auto support_it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f) 
+            auto support_it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f)
                                                                                     {return (std::abs(f.second(3)-(*plane_it)(3)) < 0.01);});
             if (support_it != supporting_planes.end())
             {
@@ -129,10 +129,10 @@ void Obj3D::UpdatePlanesViaSupporting()
         }
         plane_it++;
     }
-} 
+}
 
 
-Eigen::Matrix4f ObjCADCandidate::GetTransform (bool with_scale)
+Eigen::Matrix4f ObjCADCandidate::GetTransform (bool with_scale, bool aligned_trans)
 {
     OBBox box = object->GetBox();
     Eigen::Matrix4f transform_matrix;
@@ -145,6 +145,9 @@ Eigen::Matrix4f ObjCADCandidate::GetTransform (bool with_scale)
 
     if (set_absolute_height)
         transform_matrix(ground, 3) = absolute_height;
+
+    if (!aligned_trans)
+        transform_matrix = transform_matrix * cad_candidate->GetAlignedTransform(); // world to CAD
 
     return transform_matrix;
 }
@@ -171,7 +174,7 @@ Eigen::MatrixXf ObjCADCandidate::GetAlignedBoxCorners4D ()
                aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     corners = transform * corners;
-    
+
     return corners;
 }
 
