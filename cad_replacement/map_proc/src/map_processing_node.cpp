@@ -126,6 +126,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
                             if (if_verbose_)
                                 std::cout << "category_name " << element << std::endl;
                         }
+                        cad_id = dataset + "_" + cad_id;
                         break;
                     }
                     case 1:  // transform
@@ -160,12 +161,6 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
                         Eigen::Vector4f plane;
                         while (std::getline(ss, element, ','))
                         {
-                            // if (j % 4 == 0)
-                            // {
-                            //     if (if_verbose_)
-                            //         std::cout << "new_plane" << std::endl;
-                            // }
-
                             plane(j % 4) = std::stof(element);
 
                             if (j % 4 == 3)

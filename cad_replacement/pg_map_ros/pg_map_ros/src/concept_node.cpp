@@ -1,7 +1,7 @@
 #include "pg_map_ros/concept_node.h"
 
-
-using namespace std;
+using std::ostream;
+using std::string;
 
 namespace pgm{
 
@@ -26,11 +26,9 @@ ostream & ConceptNode::output(ostream &os) const
 }
 
 
-ConceptNode::ConceptNode(int id, string concept=""):
-    NodeBase(NodeType::ConceptNode, id)
-{
-    concept_ = concept;
-}
+ConceptNode::ConceptNode(int id, const string& concept)
+    : NodeBase(NodeType::ConceptNode, id), concept_(concept)
+{}
 
 
 /*******************************************************************
@@ -39,33 +37,24 @@ ConceptNode::ConceptNode(int id, string concept=""):
 
 /**
  * Validate current parse graph
- * 
+ *
  * Check if node_dict edge_set are correct. This method could
  * be time-consuming.
- * 
+ *
  * @return true if valid, otherwise false
  */
-string ConceptNode::getConcept()
+string ConceptNode::getConcept() const
 {
     return concept_;
 }
 
 
 /*******************************************************************
- * Modifier 
+ * Modifier
  ******************************************************************/
 void ConceptNode::setConcept(const string &concept)
 {
     concept_ = concept;
 }
 
-} // End of pgm namespace
-
-
-// ostream & operator<<(ostream &os, const ConceptNode::Ptr pnode)
-// {
-//   os << "Hi there, I am a " << pnode->node_type_ << ", my concept is " << pnode->concept_;
-//   os << ", and my id is " << pnode->id_ << ".";
-
-//   return os;
-// }
+}  // End of namespace pgm

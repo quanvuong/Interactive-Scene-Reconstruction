@@ -1,10 +1,10 @@
 #ifndef _PGM_TCP_CLIENT_H
 #define _PGM_TCP_CLIENT_H
 
-#include <stdio.h> 
-#include <sys/socket.h> 
-#include <arpa/inet.h> 
-#include <unistd.h> 
+#include <stdio.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <string.h>
 
 #include <string>
@@ -22,7 +22,7 @@ public:
 public:
     /**
      * Send string data
-     * 
+     *
      * @param data a string of data to be sent
      * @return error code, return 0 if succeed.
      */
@@ -31,7 +31,7 @@ public:
 private:
     /**
      * Send binary package
-     * 
+     *
      * @param sock an established socket
      * @param pkg a pointer of the stringified data
      * @param dsize size of the package
@@ -44,6 +44,6 @@ private:
     int port_;
 };
 
-} // end of namespace pgm
+}  // end of namespace pgm
 
 #endif

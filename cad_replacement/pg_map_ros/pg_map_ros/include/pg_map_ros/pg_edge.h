@@ -22,23 +22,23 @@ public:
 public:
     /**
      * Get source node ID
-     * 
+     *
      * @return ID of the source node
      */
     int getSrcID() const;
 
     /**
      * Get destination node ID
-     * 
+     *
      * @return ID of the destination node
      */
     int getDstID() const;
-    
+
 private:
     int src_id_;
     int dst_id_;
 };
 
-}   // end of namespace pgm
+}  // end of namespace pgm
 
 #endif

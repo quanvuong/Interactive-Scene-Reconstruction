@@ -1,8 +1,8 @@
-#include <iostream>
-
 #include "pg_map_ros/node_type.h"
 
-using namespace std;
+#include <iostream>
+
+using std::ostream;
 
 namespace pgm
 {
@@ -18,7 +18,7 @@ ostream & operator<<(ostream &os, const NodeType node_t)
     case NodeType::ConceptNode:
         os << "ConceptNode";
         break;
-    
+
     default:
         break;
     }
@@ -27,7 +27,7 @@ ostream & operator<<(ostream &os, const NodeType node_t)
 }
 
 
-std::ostream &operator<<(std::ostream& os, const Quaternion quat)
+ostream &operator<<(ostream& os, const Quaternion &quat)
 {
     os << "(" << quat.x << ", " << quat.y << ", " << quat.z << ", " << quat.w << ")";
 
@@ -35,7 +35,7 @@ std::ostream &operator<<(std::ostream& os, const Quaternion quat)
 }
 
 
-std::ostream &operator<<(std::ostream& os, const Point pt)
+ostream &operator<<(ostream& os, const Point &pt)
 {
     os << "(" << pt.x << ", " << pt.y << ", " << pt.z << ")";
 
@@ -43,4 +43,4 @@ std::ostream &operator<<(std::ostream& os, const Point pt)
 }
 
 
-} // end of namespace pgm
+}  // end of namespace pgm

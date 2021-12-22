@@ -31,38 +31,38 @@ public:
 public:
     /**
      * Get type of the node
-     * 
+     *
      * @return node type defined by enum class NodeType
      */
-    NodeType getNodeType();
+    NodeType getNodeType() const;
 
 
     /**
      * Get the ID of node
-     * 
+     *
      * @return the ID of the node
      */
-    int getID();
+    int getID() const;
 
 
     /**
      * Get the number of children
-     * 
+     *
      * Get the number of direct children of current node
-     * 
+     *
      * @return the number of children
      */
-    int childrenCount();
+    int childrenCount() const;
 
 
     /**
      * Get the list of children
-     * 
+     *
      * Get the list of children of the node
-     * 
+     *
      * @return A vector of pointers of the children
      */
-    std::vector<NodeBase::Ptr> getChildren();
+    std::vector<NodeBase::Ptr> getChildren() const;
 
 
 /*******************************************************************
@@ -71,17 +71,17 @@ public:
 public:
     /**
      * Add a child to the node
-     * 
+     *
      * @param child the pointer of the child to be added
      */
     void addChild(NodeBase::Ptr);
-    
+
 
     /**
      * Delete a child from the node
-     * 
+     *
      * Delete a node from the children_ list of the node
-     * 
+     *
      * @param pnode the pointer of the node to be added
      */
     void deleteChild(NodeBase::Ptr);
@@ -96,6 +96,6 @@ protected:
     std::vector<NodeBase::Ptr> children_;
 };
 
-} // end of namespace pgm
+}  // end of namespace pgm
 
 #endif
