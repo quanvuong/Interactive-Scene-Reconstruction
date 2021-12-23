@@ -10,6 +10,7 @@ ostream & operator<<(ostream &os, const ObjectNode &node)
     os << "[" << node.node_type_ << "]\n";
     os << "\tID:\t" << node.id_ << "\n";
     os << "\tLabel:\t" << node.label_ << "\n";
+    os << "\tCAD dataset:\t" << node.cad_dataset_ << "\n";
     os << "\tCAD ID:\t" << node.cad_id_ << "\n";
     os << "\tScale:\t" << node.bbox_ << "\n";
     os << "\tPosition:\t" << node.position_ << "\n";
@@ -34,15 +35,17 @@ ostream & ObjectNode::output(ostream &os) const
 
 
 ObjectNode::ObjectNode(int id, const string& label)
-    : NodeBase(NodeType::ObjectNode, id), label_(label), cad_id_(""),
+    : NodeBase(NodeType::ObjectNode, id), label_(label), cad_dataset_(""), cad_id_(""),
       scale_(1.0), position_(), orientation_(), bbox_(1, 1, 1), ious_({{-1, 1.0}})
 {}
 
 
-ObjectNode::ObjectNode(int id, const string &label, const string &cad_id,
+ObjectNode::ObjectNode(int id, const string &label,
+        const string &cad_dataset, const string &cad_id,
         float scale, const Point &pos, const Quaternion &quat,
         const Point &bbox, const VecPair<int, float> &ious)
-    : NodeBase(NodeType::ObjectNode, id), label_(label), cad_id_(cad_id),
+    : NodeBase(NodeType::ObjectNode, id), label_(label),
+      cad_dataset_(cad_dataset), cad_id_(cad_id),
       scale_(scale), position_(pos), orientation_(quat),
       bbox_(bbox), ious_(ious)
 {}
@@ -60,6 +63,17 @@ ObjectNode::ObjectNode(int id, const string &label, const string &cad_id,
 string ObjectNode::getLabel() const
 {
     return label_;
+}
+
+
+/**
+ * Get the CAD dataset of the node
+ *
+ * @return the cad dataset (std::string) of the node
+ */
+string ObjectNode::getCadDataset() const
+{
+    return cad_dataset_;
 }
 
 
@@ -147,6 +161,17 @@ VecPair<int, float> ObjectNode::getIoUs() const
 void ObjectNode::setLabel(const string &label)
 {
     label_ = label;
+}
+
+
+/**
+ * Set the CAD dataset of the node
+ *
+ * @param cad_dataset the cad dataset to be set
+ */
+void ObjectNode::setCadDataset(const std::string &cad_dataset)
+{
+    cad_dataset_ = cad_dataset;
 }
 
 

@@ -35,7 +35,7 @@ public:
      * @param bbox (Point) the bounding box of the object
      * @param iou (float) the IoU of replaced CAD comparing to the segmented mesh
      */
-    ObjectNode(int, const std::string &, const std::string &,
+    ObjectNode(int, const std::string &, const std::string &, const std::string &,
                float, const Point&, const Quaternion&, const Point&,
                const VecPair<int, float>& = {{-1, 1.0}});
 
@@ -56,6 +56,14 @@ public:
      * @return the label (std::string) of the node
      */
     std::string getLabel() const;
+
+
+    /**
+     * Get the CAD dataset of the node
+     *
+     * @return the cad dataset (std::string) of the node
+     */
+    std::string getCadDataset() const;
 
 
     /**
@@ -122,6 +130,14 @@ public:
      * @param label the label to be set
      */
     void setLabel(const std::string &);
+
+
+    /**
+     * Set the CAD dataset of the node
+     *
+     * @param cad_dataset the cad dataset to be set
+     */
+    void setCadDataset(const std::string &);
 
 
     /**
@@ -237,6 +253,7 @@ protected:
 
 private:
     std::string label_;
+    std::string cad_dataset_;
     std::string cad_id_;
     float scale_;
     Point position_;

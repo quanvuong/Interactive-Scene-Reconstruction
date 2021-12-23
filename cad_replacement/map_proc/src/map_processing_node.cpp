@@ -73,7 +73,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
     std::ifstream infile(cad_id_file_);
     std::string line, subline, element;
 
-    std::string dataset, cad_id, category_name;
+    std::string cad_dataset = "", cad_id, category_name;
     std::vector<Eigen::Vector4f> planes;
     Eigen::Vector3f aligned_dims;
     Eigen::Matrix4f aligned_transform = Eigen::Matrix4f::Identity();
@@ -110,7 +110,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
                         std::stringstream ss(subline);
                         if (std::getline(ss, element, ','))
                         {
-                            dataset = element;
+                            cad_dataset = element;
                             if (if_verbose_)
                                 std::cout << "dataset: " << element << std::endl;
                         }
@@ -126,7 +126,6 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
                             if (if_verbose_)
                                 std::cout << "category_name " << element << std::endl;
                         }
-                        cad_id = dataset + "_" + cad_id;
                         break;
                     }
                     case 1:  // transform
@@ -234,7 +233,8 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
         }
 
         // Store into ObjCAD
-        ObjCAD::Ptr object_cad = std::make_shared<ObjCAD> (cad_id, category_name, planes, aligned_dims);
+        ObjCAD::Ptr object_cad = std::make_shared<ObjCAD> (cad_dataset, cad_id,
+                category_name, planes, aligned_dims);
         object_cad->SetAlignedTransform(aligned_transform);
 
         // If choose not to fit CADs for cabinets
@@ -1910,6 +1910,7 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
             pgm::Quaternion quaternion(quat.x(), quat.y(), quat.z(), quat.w());
 
             std::cout << current_object->category_name << current_object->id << std::endl;
+            object_node->setCadDataset(cad->cad_dataset);
             object_node->setCadID(cad->cad_id);
             object_node->setScale(candidate->GetScale());
             object_node->setPose(pos, quaternion);

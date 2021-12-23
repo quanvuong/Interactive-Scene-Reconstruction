@@ -723,9 +723,9 @@ json ParseGraphMap::generateEdgeJson_(const PgEdge &edge)
  */
 json ParseGraphMap::generateNodeJson_(NodeBase::Ptr pnode)
 {
-    if(pnode->getNodeType() == NodeType::ConceptNode)
+    if (pnode->getNodeType() == NodeType::ConceptNode)
         return generateConceptNodeJson_(dynamic_pointer_cast<ConceptNode>(pnode));
-    else if(pnode->getNodeType() == NodeType::ObjectNode)
+    else if (pnode->getNodeType() == NodeType::ObjectNode)
         return generateObjectNodeJson_(dynamic_pointer_cast<ObjectNode>(pnode));
     else
     {
@@ -778,6 +778,7 @@ json ParseGraphMap::generateObjectNodeJson_(ObjectNode::Ptr pnode)
 
     nj["node_type"] = "ObjectNode";
     nj["id"] = pnode->getID();
+    nj["cad_dataset"] = pnode->getCadDataset();
     nj["cad_id"] = pnode->getCadID();
     nj["scale"] = pnode->getScale();
     nj["label"] = pnode->getLabel();
