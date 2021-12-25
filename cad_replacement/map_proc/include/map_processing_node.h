@@ -55,7 +55,7 @@ public:
     void MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& objects,
             const std::unordered_map<std::string, std::vector<ObjCAD::Ptr>>& cad_database,
             std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_candidates_map);
-    void ComputeDimsMatchingError(const Eigen::Vector3f object_normalized_dims,
+    void ComputeDimsMatchingError(const Eigen::Vector3f& object_normalized_dims,
             const ObjCAD::Ptr& cad, std::unordered_map<int, float>& matching_errors);
     void ComputeSupportingPlaneMatchingError(
             const std::vector<std::pair<float, Eigen::Vector4f>>& supporting_planes,

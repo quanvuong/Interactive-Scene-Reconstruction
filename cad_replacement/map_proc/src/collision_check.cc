@@ -10,7 +10,7 @@ CollisionObjectf* PCLMeshToFCLObject(const pcl::PolygonMesh::Ptr& mesh)
         ROS_ERROR("Null input mesh pointer!");
         return nullptr;
     }
-    // Get vertices 
+    // Get vertices
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromPCLPointCloud2(mesh->cloud, *cloud);
 
@@ -176,7 +176,7 @@ float ComputeMeshMeshDistance(const pcl::PolygonMesh::Ptr& mesh_1, const pcl::Po
     if (mesh_1 == nullptr || mesh_2 == nullptr)
     {
         ROS_ERROR("Null input pointer!");
-        return false;
+        return 0;
     }
 
     // Mesh collision object in FCL
@@ -201,7 +201,7 @@ float ComputeCloudCloudDistance (const pcl::PointCloud<PointTFull>::Ptr cloud_1,
     {
         ROS_ERROR("Null point cloud pointer");
         return 0;
-    } 
+    }
 
     float squared_dist = 10.0f;
     int k = 1;
@@ -215,7 +215,7 @@ float ComputeCloudCloudDistance (const pcl::PointCloud<PointTFull>::Ptr cloud_1,
 
         if (kdtree.nearestKSearch(cloud_1->points[i], k, pointIdxNKNSearch, pointNKNSquaredDistance) > 0 )
             if (pointNKNSquaredDistance[0] < squared_dist)
-                squared_dist = pointNKNSquaredDistance[0];            
+                squared_dist = pointNKNSquaredDistance[0];
     }
 
     return sqrt(squared_dist);

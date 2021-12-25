@@ -20,6 +20,10 @@ const std::vector<std::string> layout_class = {"Background", "Floor", "Wall", "C
 
 void Obj3D::ComputeBox()
 {
+    // box is computed by (assuming z-axis is ground axis)
+    //      projecting cloud onto xy-plane
+    //      estimate 2D ApproxMVBB
+    //      construct a 3D bbox from the 2D MVBB, z-axis uses min/max
     ComputeGroundOrientedBoundingBox(cloud, box, ground);
     diameter = sqrt(box.aligned_dims.transpose() * box.aligned_dims);
     bottom_height = (box.pos.transpose()*ground_axis - box.aligned_dims.transpose()*ground_axis/2)(0);
@@ -27,7 +31,7 @@ void Obj3D::ComputeBox()
 }
 
 
-Eigen::MatrixXf Obj3D::GetBoxCorners4D()
+Eigen::MatrixXf Obj3D::GetBoxCorners4D() const
 {
     Eigen::Matrix4f transform = GetHomogeneousTransformMatrix(box.pos, box.quat);
     Eigen::Vector3f aligned_dims = box.aligned_dims;
@@ -110,11 +114,11 @@ void Obj3D::UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supportin
     auto it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f)
         {return (std::abs(f.first-supporting_plane_height_ratio) < 0.05);});
     if (it != supporting_planes.end())
-        supporting_children.insert(std::make_pair(child, it-supporting_planes.begin()));
+        supporting_children.insert({child, it-supporting_planes.begin()});
     else
     {
-        supporting_planes.push_back(std::make_pair(supporting_plane_height_ratio, supporting_plane));
-        supporting_children.insert(std::make_pair(child, supporting_planes.size()-1));
+        supporting_planes.push_back({supporting_plane_height_ratio, supporting_plane});
+        supporting_children.insert({child, supporting_planes.size()-1});
     }
 }
 
@@ -123,7 +127,7 @@ void Obj3D::UpdatePlanesViaSupporting()
 {
     for (auto plane_it = planes.begin(); plane_it != planes.end(); )
     {
-        if (IsSupportingPlane (*plane_it, ground_axis))
+        if (IsSupportingPlane(*plane_it, ground_axis))
         {
             auto support_it = std::find_if(supporting_planes.begin(), supporting_planes.end(),
                     [=] (const auto& f) {return (std::abs(f.second(3)-(*plane_it)(3)) < 0.01);});

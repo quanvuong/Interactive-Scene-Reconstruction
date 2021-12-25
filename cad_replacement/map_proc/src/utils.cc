@@ -188,7 +188,8 @@ bool CheckOverlap2D (const OBBox& parent, const OBBox& child, const int ground)
             Eigen::Vector2f vect = grid - parent_center;
             float grid_u = vect.transpose()*parent_u;
             float grid_v = vect.transpose()*parent_v;
-            if (grid_u < max_dim_parent_u && grid_u > -max_dim_parent_u && grid_v < max_dim_parent_v && grid_v > -max_dim_parent_v)
+            if (grid_u < max_dim_parent_u && grid_u > -max_dim_parent_u &&
+                grid_v < max_dim_parent_v && grid_v > -max_dim_parent_v)
                return true;
         }
     }
@@ -233,7 +234,8 @@ float GetOverlapRatio2D (const OBBox& parent, const OBBox& child, const int grou
             Eigen::Vector2f vect = grid - parent_center;
             float grid_u = vect.transpose()*parent_u;
             float grid_v = vect.transpose()*parent_v;
-            if (grid_u < max_dim_parent_u && grid_u > -max_dim_parent_u && grid_v < max_dim_parent_v && grid_v > -max_dim_parent_v)
+            if (grid_u < max_dim_parent_u && grid_u > -max_dim_parent_u &&
+                grid_v < max_dim_parent_v && grid_v > -max_dim_parent_v)
                overlap_count++;
         }
     }
@@ -310,7 +312,8 @@ bool IsSupportingPlane (const Eigen::Vector4f& plane, const Eigen::Vector3f& gro
 
 float ComputePlaneError (const Eigen::Vector4f& plane1, const Eigen::Vector4f& plane2, const float scale)
 {
-    float error = (1.0 - plane1.head(3).transpose() * plane2.head(3)) + std::abs(scale * plane1(3) - plane2(3));
+    float error = (1.0 - plane1.head(3).transpose() * plane2.head(3))
+                + std::abs(scale * plane1(3) - plane2(3));
     return error;
 }
 

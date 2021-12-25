@@ -48,25 +48,37 @@ public:
     void SetBox(const OBBox& box_in) {box = box_in;}
 
     // Get box corners in generalized coordinate
-    Eigen::MatrixXf GetBoxCorners4D();
+    Eigen::MatrixXf GetBoxCorners4D() const;
 
     // Estimate planes and potential supporting planes
     void ComputePlanes();
     void ComputePotentialSupportingPlanes();
 
     // Get private members
-    pcl::PolygonMesh::Ptr GetMeshPtr() {return mesh;}
-    pcl::PointCloud<PointTFull>::Ptr GetPointCloudPtr() {return cloud;}
-    std::vector<Eigen::Vector4f> GetPlanes() {return planes;}
-    std::vector<Eigen::Vector4f> GetPotentialSupportingPlanes() {return potential_supporting_planes;}
-    std::vector<std::pair<float, Eigen::Vector4f>> GetSupportingPlanes() {return supporting_planes;}
+    pcl::PolygonMesh::Ptr GetMeshPtr() const {return mesh;}
+    pcl::PointCloud<PointTFull>::Ptr GetPointCloudPtr() const {return cloud;}
+    std::vector<Eigen::Vector4f> GetPlanes() const {return planes;}
+    std::vector<Eigen::Vector4f> GetPotentialSupportingPlanes() const
+    {
+        return potential_supporting_planes;
+    }
+    std::vector<std::pair<float, Eigen::Vector4f>> GetSupportingPlanes() const
+    {
+        return supporting_planes;
+    }
 
-    OBBox GetBox() {return box;}
-    float GetDiameter() {return diameter;}
-    float GetBottomHeight() {return bottom_height;}
-    float GetTopHeight() {return top_height;}
-    std::pair<Obj3D::Ptr, Eigen::Vector4f> GetSupportingParent() {return supporting_parent;}
-    std::unordered_map<Obj3D::Ptr, int> GetSupportingChildren() {return supporting_children;}
+    OBBox GetBox() const {return box;}
+    float GetDiameter() const {return diameter;}
+    float GetBottomHeight() const {return bottom_height;}
+    float GetTopHeight() const {return top_height;}
+    std::pair<Obj3D::Ptr, Eigen::Vector4f> GetSupportingParent() const
+    {
+        return supporting_parent;
+    }
+    std::unordered_map<Obj3D::Ptr, int> GetSupportingChildren() const
+    {
+        return supporting_children;
+    }
 
     // Compute the distance from each potential supporting plane
     // to the given bottom height of a candidate child (gravity aligned)
@@ -76,7 +88,7 @@ public:
     // Set supporting parent, refine box as supporting child
     void SetSupportingParent(Obj3D::Ptr parent, Eigen::Vector4f supporting_plane)
     {
-        supporting_parent = std::make_pair(parent, supporting_plane);
+        supporting_parent = {parent, supporting_plane};
     }
     void RefineAsSupportingChild();
 
@@ -92,7 +104,7 @@ public:
     void UpdatePlanesViaSupporting();
 
     // Get transform in world frame
-    Eigen::Matrix4f GetBoxTransform () {return GetHomogeneousTransformMatrix (box.pos, box.quat, 1.0);}
+    Eigen::Matrix4f GetBoxTransform() {return GetHomogeneousTransformMatrix (box.pos, box.quat, 1.0);}
 
     // Public variables
     int id;
@@ -131,10 +143,10 @@ public:
     }
 
     // Get private variables
-    Eigen::Vector3f GetDims() {return aligned_dims;}
-    float GetDiameter() {return diameter;}
-    std::vector<Eigen::Vector4f> GetPlanes() {return planes;}
-    Eigen::Matrix4f GetAlignedTransform() {return aligned_transform;}
+    Eigen::Vector3f GetDims() const {return aligned_dims;}
+    float GetDiameter() const {return diameter;}
+    std::vector<Eigen::Vector4f> GetPlanes() const {return planes;}
+    Eigen::Matrix4f GetAlignedTransform() const {return aligned_transform;}
     pcl::PolygonMesh::Ptr GetMeshPtr()
     {
         if (mesh == nullptr)

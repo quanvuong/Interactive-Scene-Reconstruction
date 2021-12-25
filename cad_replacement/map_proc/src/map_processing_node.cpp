@@ -246,10 +246,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
         if (it != cad_database.end())
             it->second.push_back(object_cad);
         else
-        {
-            std::vector<ObjCAD::Ptr> cad_vector = {object_cad};
-            cad_database.insert(std::make_pair(object_cad->category_name, cad_vector));
-        }
+            cad_database.insert({object_cad->category_name, {object_cad}});
     }
     // Close the File
     infile.close();
@@ -266,9 +263,6 @@ void MapProcessingNode::LoadInstanceSegments(
 
     int instance_label;
     std::string category_name;
-    Eigen::Vector3f pos;
-    Eigen::Vector3f aligned_dims;  // x,y,z in world frame
-    Eigen::Quaternionf quat;  // x,y,z,w
 
     for (const auto& element : j.items())
     {
@@ -326,11 +320,15 @@ void MapProcessingNode::LoadInstanceSegments(
             diameter /= static_cast<float>(k);
             min_dim /= static_cast<float>(k);
 
-            if (filter_small_objects_ && object->GetDiameter() < diameter*0.4 )
+            if (filter_small_objects_ && object->GetDiameter() < diameter*0.4)
                 continue;
         }
 
         // Compute planes and potential supporting planes
+        // Planes are computed with RANSAC (pcl::SACMODEL_NORMAL_PLANE)
+        //      considers abs distance error and surface normal error [0, pi/2]
+        // Potential supporting planes are those RANSAC planes
+        //      whose normal.dot(ground_axis) > 0.9. ground_axis is upwards
         object->ComputePlanes();
         object->ComputePotentialSupportingPlanes();
         objects.push_back(object);
@@ -407,7 +405,7 @@ void MapProcessingNode::LoadGroundTruthSegments(std::vector<Obj3D::Ptr>& objects
         }
     }
 
-    for (auto& layout : pc_to_merge)
+    for (const auto& layout : pc_to_merge)
     {
         // Store into Obj3D
         Obj3D::Ptr object = std::make_shared<Obj3D> (layout.second.first,
@@ -456,9 +454,13 @@ void MapProcessingNode::LoadGroundTruthSegments(std::unordered_map<int, OBBox>& 
 
 
 void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& objects,
-        std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr,
-        Eigen::Vector4f>>& parent_child_map, std::queue<Obj3D::Ptr>& obj_to_check)
+        std::unordered_map<Obj3D::Ptr,
+                           std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
+        std::queue<Obj3D::Ptr>& obj_to_check)
 {
+    // For non-layout object,
+    //      parent_candidates are those below object and has a 2D overlapping region
+    // For layout object, parent_candidates are {}
     std::unordered_map<Obj3D::Ptr, std::vector<Obj3D::Ptr>> parent_candidates;
     ComputeParentCandidates(objects, parent_candidates);
 
@@ -476,38 +478,39 @@ void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& o
             {
                 // when the supporting parent candidate is layout class
                 // and without potential supporting planes
-                if (parent_it->second[j]->IsLayout()
-                        && parent_it->second[j]->GetPotentialSupportingPlanes().size() == 0)
+                if (parent_it->second[j]->IsLayout() &&
+                    parent_it->second[j]->GetPotentialSupportingPlanes().size() == 0)
                 {
                     layout_parents_no_supporting_planes.push_back(parent_it->second[j]);
                     continue;
                 }
 
+                // Eq. 3 in paper
                 std::vector<std::pair<Eigen::Vector4f, float>> plane_score_vec;
                 ComputeSupportingScores(objects[i], parent_it->second[j], plane_score_vec);
 
                 for (auto score_it = plane_score_vec.begin();
                           score_it != plane_score_vec.end(); score_it++)
-                {
-                    if ((*score_it).second > best_score)
+                    if (score_it->second > best_score)
                     {
                         // The larger, the better
                         best_score = score_it->second;
                         best_plane = score_it->first;
                         best_parent = parent_it->second[j];
                     }
-                }
             }
 
             // no valid parent, consider layout parents (especially walls and background)
             if (best_score <= 0.2)
             {
                 best_score = -1;
-                for (const auto parent : layout_parents_no_supporting_planes)
+                for (const auto& parent : layout_parents_no_supporting_planes)
                 {
                     float dist;
                     Eigen::Vector4f hidden_plane(ground_axis(0), ground_axis(1), ground_axis(2),
                                                  -objects[i]->GetBottomHeight());
+                    // FIXME: maybe a bug, dist always equals zero. Maybe should be std::max
+                    //        Unless it's desired to always accept the first one as parent
                     if (objects[i]->GetMeshPtr() != nullptr)
                         dist = std::min(0.0f,
                                 ComputeMeshMeshDistance(objects[i]->GetMeshPtr(),
@@ -516,7 +519,7 @@ void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& o
                         dist = std::min(0.0f,
                                 ComputeCloudCloudDistance(objects[i]->GetPointCloudPtr(),
                                                           parent->GetPointCloudPtr()));
-                    float score = (1.0 - std::min(dist, 1.0f)/1.0f);
+                    float score = (1.0 - std::min(dist, 1.0f)/1.0f);  // always = 1.0
 
                     if (score > best_score)
                     {
@@ -538,13 +541,9 @@ void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& o
                 }
                 auto it = parent_child_map.find(best_parent);
                 if (it != parent_child_map.end())
-                    it->second.insert(std::make_pair(objects[i], best_plane));
+                    it->second.insert({objects[i], best_plane});
                 else
-                {
-                    std::unordered_map<Obj3D::Ptr, Eigen::Vector4f> map =
-                        {std::make_pair(objects[i], best_plane)};
-                    parent_child_map.insert(std::make_pair(best_parent, map));
-                }
+                    parent_child_map.insert({best_parent, {{objects[i], best_plane}}});
                 continue;
             }
         }
@@ -554,9 +553,11 @@ void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& o
 }
 
 
-void MapProcessingNode::BuildContactGraph(const std::unordered_map<Obj3D::Ptr,
-        std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
-        const std::unordered_map<int, OBBox>& gt_objects, std::queue<Obj3D::Ptr>& obj_to_check,
+void MapProcessingNode::BuildContactGraph(
+        const std::unordered_map<Obj3D::Ptr,
+                                 std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
+        const std::unordered_map<int, OBBox>& gt_objects,
+        std::queue<Obj3D::Ptr>& obj_to_check,
         pgm::ParseGraphMap::Ptr& contact_graph)
 {
     if (contact_graph == nullptr)
@@ -622,12 +623,12 @@ void MapProcessingNode::BuildContactGraph(const std::unordered_map<Obj3D::Ptr,
         // Check parsegraph
         std::vector<pgm::PgEdge> edges = contact_graph->getEdges();
         std::cout << "PG Edges" << std::endl;
-        for (auto e : edges)
+        for (const auto& e : edges)
             std::cout << e << std::endl;
 
         std::vector<pgm::NodeBase::Ptr> nodes = contact_graph->getNodes();
         std::cout << "PG Nodes" << std::endl;
-        for (auto n : nodes)
+        for (const auto& n : nodes)
             std::cout << n << std::endl;
     }
 }
@@ -641,16 +642,14 @@ void MapProcessingNode::ComputeParentCandidates(const std::vector<Obj3D::Ptr>& o
         // For layout, we don't estimate supporting parents;
         // layout nodes will be directly under root node
         if (objects[i]->IsLayout())
-        {
-            std::vector<Obj3D::Ptr> vec = {};
-            candidates.insert(std::make_pair(objects[i], vec));
-        }
+            candidates.insert({objects[i], {}});
 
         for (int j = i+1; j < objects.size(); j++)
         {
-            if (!CheckOverlap2D (objects[i]->GetBox(), objects[j]->GetBox(), ground))
-                continue;
+            if (!CheckOverlap2D(objects[i]->GetBox(), objects[j]->GetBox(), ground))
+                continue;  // no 2D overlap, cannot provide support
 
+            // objects[j] is below objects[i]
             if (objects[j]->GetBottomHeight() < objects[i]->GetBottomHeight())
             {
                 if (!objects[i]->IsLayout())
@@ -659,10 +658,7 @@ void MapProcessingNode::ComputeParentCandidates(const std::vector<Obj3D::Ptr>& o
                     if (it != candidates.end())
                         it->second.push_back(objects[j]);
                     else
-                    {
-                        std::vector<Obj3D::Ptr> vec = {objects[j]};
-                        candidates.insert(std::make_pair(objects[i], vec));
-                    }
+                        candidates.insert({objects[i], {objects[j]}});
                 }
             }
             else
@@ -673,10 +669,7 @@ void MapProcessingNode::ComputeParentCandidates(const std::vector<Obj3D::Ptr>& o
                     if (it != candidates.end())
                         it->second.push_back(objects[i]);
                     else
-                    {
-                        std::vector<Obj3D::Ptr> vec = {objects[i]};
-                        candidates.insert(std::make_pair(objects[j], vec));
-                    }
+                        candidates.insert({objects[j], {objects[i]}});
                 }
             }
         }
@@ -694,8 +687,10 @@ void MapProcessingNode::ComputeSupportingScores(const Obj3D::Ptr& child,
     }
 
     // Stuffs can't be supported by things
-    if (std::find(layout_class.begin(), layout_class.end(), child->category_name) != layout_class.end() &&
-        std::find(layout_class.begin(), layout_class.end(), parent->category_name) == layout_class.end())
+    if (std::find(layout_class.begin(), layout_class.end(),
+                  child->category_name) != layout_class.end() &&
+        std::find(layout_class.begin(), layout_class.end(),
+                  parent->category_name) == layout_class.end())
         return;
 
     // Compute overlap ratio and height distance (for each potential supporting planes)
@@ -711,7 +706,8 @@ void MapProcessingNode::ComputeSupportingScores(const Obj3D::Ptr& child,
 
 
 void MapProcessingNode::UpdateObjectsViaSupportingRelations(std::vector<Obj3D::Ptr>& objects,
-        std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
+        std::unordered_map<Obj3D::Ptr,
+                           std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>>& parent_child_map,
         const std::queue<Obj3D::Ptr>& obj_to_check)
 {
     std::queue<Obj3D::Ptr> next_obj_check = obj_to_check;
@@ -830,7 +826,8 @@ void MapProcessingNode::MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& 
                 }
             }
 
-            // Loop over all available CAD models in the same class and compute coarse matching error
+            // Loop over all available CAD models in the same class
+            // and compute coarse matching error
             std::vector<ObjCADCandidate::Ptr> cad_candidates;
             for (int j = 0; j < cate_it->second.size(); j++)
             {
@@ -881,7 +878,7 @@ void MapProcessingNode::MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& 
             auto cmp = [](const ObjCADCandidate::Ptr & a, const ObjCADCandidate::Ptr & b) -> bool
                 {return a->GetCoarseMatchingError() < b->GetCoarseMatchingError();};
             std::sort(cad_candidates.begin(), cad_candidates.end(), cmp);
-            cad_candidates_map.insert(std::make_pair(objects[i], cad_candidates));
+            cad_candidates_map.insert({objects[i], cad_candidates});
 
             ros::Time end = ros::Time::now();
             // std::cout << "time: " << (end-start).toSec() << std::endl;
@@ -890,7 +887,7 @@ void MapProcessingNode::MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& 
 }
 
 
-void MapProcessingNode::ComputeDimsMatchingError(const Eigen::Vector3f object_normalized_dims,
+void MapProcessingNode::ComputeDimsMatchingError(const Eigen::Vector3f& object_normalized_dims,
         const ObjCAD::Ptr& cad, std::unordered_map<int, float>& matching_errors)
 {
     if (cad == nullptr)
@@ -911,7 +908,7 @@ void MapProcessingNode::ComputeDimsMatchingError(const Eigen::Vector3f object_no
         float error = std::abs(cad_dim_ratio(0) - object_dim_ratio(0))
             + std::abs(cad_dim_ratio(1) - object_dim_ratio(1))
             + std::abs(cad_dim_ratio(2) - object_dim_ratio(2));
-        matching_errors.insert(std::make_pair(i, error));
+        matching_errors.insert({i, error});
     }
 }
 
@@ -926,6 +923,7 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError(
         ROS_ERROR("Null input cad pointer!");
         return;
     }
+    // If object has no supporting plane
     if (supporting_planes.size() == 0)
         return;
 
@@ -950,11 +948,12 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError(
             {
                 num_supporting_plane++;
                 float ratio = (-current_plane(3)+ground_dim/2)/ground_dim;
-                plane_height_ratios.push_back(std::make_pair(j, ratio));
+                plane_height_ratios.push_back({j, ratio});
             }
         }
         // Check whether there are sufficient number of
         // potential supporting planes on the CAD for pairing
+        // If false, skip this canonical_base_transform
         if (num_supporting_plane < supporting_planes.size())
         {
             it = matching_errors.erase(it);
@@ -984,7 +983,7 @@ void MapProcessingNode::ComputeSupportingPlaneMatchingError(
 
             // Averaged for all planes
             it->second += supporting_plane_error / static_cast<float>(supporting_planes.size());
-            pose_supporting_plane_map.insert(std::make_pair(index, obj_to_cad_global));
+            pose_supporting_plane_map.insert({index, obj_to_cad_global});
         }
         it++;
     }
@@ -1001,6 +1000,7 @@ void MapProcessingNode::ComputePlaneMatchingError(
         ROS_ERROR("Null input cad pointer!");
         return;
     }
+    // If object has no plane
     if (canonical_transformed_planes[0].size() == 0)
         return;
 
@@ -1016,6 +1016,9 @@ void MapProcessingNode::ComputePlaneMatchingError(
         for (auto& plane : cad_planes)
             plane(3) /= cad_diameter;
 
+        // Check whether there are sufficient number of
+        // planes on the CAD for pairing
+        // If false, skip this canonical_base_transform (which will skip this CAD)
         if (cad_planes.size() < obj_transformed_planes.size())
         {
             it = matching_errors.erase(it);
@@ -1039,7 +1042,7 @@ void MapProcessingNode::ComputePlaneMatchingError(
             float plane_error = MinCostMatchingNonSquare(cost_matrix, obj_to_cad);
             // Averaged for all planes
             it->second += plane_error / static_cast<float>(obj_transformed_planes.size());
-            pose_plane_map.insert(std::make_pair(index, obj_to_cad));
+            pose_plane_map.insert({index, obj_to_cad});
         }
         it++;
     }
@@ -1163,9 +1166,9 @@ bool MapProcessingNode::ValidateSupportingAffordance(ObjCADCandidate::Ptr& cad_c
                 extract.setNegative(false);
                 extract.filter(*above_supporting_plane_cloud);
 
-                cad_transformed_supporting_planes.push_back(std::make_pair(j, current_plane));
-                cad_plane_clouds.push_back(std::make_pair(j, cad_supporting_plane_cloud));
-                cad_above_plane_clouds.push_back(std::make_pair(j, above_supporting_plane_cloud));
+                cad_transformed_supporting_planes.push_back({j, current_plane});
+                cad_plane_clouds.push_back({j, cad_supporting_plane_cloud});
+                cad_above_plane_clouds.push_back({j, above_supporting_plane_cloud});
             }
         }
 
@@ -1212,7 +1215,7 @@ bool MapProcessingNode::ValidateSupportingAffordance(ObjCADCandidate::Ptr& cad_c
             std::set<int> invalid_current_check;
             std::vector<OBBox> boxes;
 
-            for (const auto child_pair : object->GetSupportingChildren())
+            for (const auto& child_pair : object->GetSupportingChildren())
             {
                 Obj3D::Ptr child = child_pair.first;
                 int index = child_pair.second;
@@ -1225,7 +1228,7 @@ bool MapProcessingNode::ValidateSupportingAffordance(ObjCADCandidate::Ptr& cad_c
                                                    cad_above_plane_clouds[cad_index].second,
                                                    child))
                     {
-                        invalid_supporting_plane_match.emplace(std::make_pair(index, cad_index));
+                        invalid_supporting_plane_match.insert({index, cad_index});
                         invalid_current_check.emplace(index);
                         valid_match = false;
                     }
@@ -1318,6 +1321,7 @@ bool MapProcessingNode::CheckSupportingAffordance(const Eigen::Vector4f& support
         }
     }
 
+    // Second condition is meaningless
     if ((max_len_u > min_len_u) && (max_len_v > min_len_v))
         if ((max_len_u - min_len_u)*(max_len_v - min_len_v) /
             (child_half_dim_2d(0)*child_half_dim_2d(1)*4.0) > 0.0)
@@ -1351,9 +1355,11 @@ bool MapProcessingNode::CheckSupportingAffordance(const Eigen::Vector4f& support
 }
 
 
-void MapProcessingNode::ComputePotentialCollisionPairs(const std::unordered_map<Obj3D::Ptr,
-        std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
-        std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map)
+void MapProcessingNode::ComputePotentialCollisionPairs(
+        const std::unordered_map<Obj3D::Ptr,
+                                 std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
+        std::unordered_map<Obj3D::Ptr,
+                           std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map)
 {
     std::vector<Obj3D::Ptr> objects;
     for (const auto& cad_candidate_pair : cad_selected_candidates)
@@ -1368,7 +1374,7 @@ void MapProcessingNode::ComputePotentialCollisionPairs(const std::unordered_map<
                 object_2 != object_1->GetSupportingParent().first &&
                 children.find(object_2) == children.end())
             {
-                if (CheckOverlap2DRough (object_1->GetBox(), object_2->GetBox(), ground))
+                if (CheckOverlap2DRough(object_1->GetBox(), object_2->GetBox(), ground))
                 {
                     if (if_verbose_)
                         std::cout << "Potential collision: " << object_1->category_name << " "
@@ -1379,13 +1385,9 @@ void MapProcessingNode::ComputePotentialCollisionPairs(const std::unordered_map<
                                                             ground, 0.005);
                     auto map_it = possible_collision_map.find(object_1);
                     if (map_it != possible_collision_map.end())
-                        map_it->second.insert(std::make_pair(object_2, overlap_ratio));
+                        map_it->second.insert({object_2, overlap_ratio});
                     else
-                    {
-                        std::unordered_map<Obj3D::Ptr, float> collision_map =
-                            {std::make_pair(object_2, overlap_ratio)};
-                        possible_collision_map.insert(std::make_pair(object_1, collision_map));
-                    }
+                        possible_collision_map.insert({object_1, {{object_2, overlap_ratio}}});
                 }
             }
         }
@@ -1394,7 +1396,8 @@ void MapProcessingNode::ComputePotentialCollisionPairs(const std::unordered_map<
 
 
 void MapProcessingNode::MatchCADToSegmentsFine(const std::vector<Obj3D::Ptr>& objects,
-        std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates)
+        std::unordered_map<Obj3D::Ptr,
+                           std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates)
 {
     for (auto& obj_candidates_pair : cad_selected_candidates)
     {
@@ -1442,7 +1445,7 @@ void MapProcessingNode::MatchCADToSegmentsFine(const std::vector<Obj3D::Ptr>& ob
                 Eigen::Vector4f transformed_supporting_plane =
                     TransformPlaneLocalToGlobal(assigned_cad_plane,
                                                 canonical_base_transforms[pose_index]);
-                if (IsSupportingPlane (transformed_supporting_plane, ground_axis))
+                if (IsSupportingPlane(transformed_supporting_plane, ground_axis))
                     // CAD plane height
                     supporting_planes_cad(k) = -transformed_supporting_plane(3)
                                               + transformed_dims(ground)/2;
@@ -1562,9 +1565,10 @@ float MapProcessingNode::ComputeAlignmentError(const Obj3D::Ptr& object,
 
 
 void MapProcessingNode::GlobalRegulation(const std::vector<Obj3D::Ptr>& objects,
-        std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
+        std::unordered_map<Obj3D::Ptr,
+                           std::vector<ObjCADCandidate::Ptr>>& cad_selected_candidates,
         const std::unordered_map<Obj3D::Ptr,
-            std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map,
+                                 std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map,
         std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate)
 {
     bool if_wall_constraint = false;
@@ -1585,7 +1589,7 @@ void MapProcessingNode::GlobalRegulation(const std::vector<Obj3D::Ptr>& objects,
             bool valid_supporting_ratio = true;
             std::unordered_map<Obj3D::Ptr, int> children =
                 obj_candidates_pair.first->GetSupportingChildren();
-            for (const auto child : children)
+            for (const auto& child : children)
             {
                 OBBox child_box = child.first->GetBox();
                 if (GetOverlapRatio2D(current_box, child_box, ground, 0.002) < 0.3)
@@ -1612,8 +1616,7 @@ void MapProcessingNode::GlobalRegulation(const std::vector<Obj3D::Ptr>& objects,
             i++;
         }
         if (obj_candidates_pair.second.size() > 0)
-            map_candidate.insert(std::make_pair(obj_candidates_pair.first,
-                                                obj_candidates_pair.second[0]));
+            map_candidate.insert({obj_candidates_pair.first, obj_candidates_pair.second[0]});
         else
         {
             ROS_ERROR("No candidates valid!");
@@ -1628,13 +1631,11 @@ void MapProcessingNode::GlobalRegulation(const std::vector<Obj3D::Ptr>& objects,
     std::cout << "---------------------------------" << std::endl;
     std::cout << "Collision pairs: " << std::endl;
     for (const auto& collided_pair : collided_pairs)
-    {
         for (const auto& collided_obj : collided_pair.second)
             std::cout << collided_pair.first->category_name << " "
                       << collided_pair.first->id << " "
                       << collided_obj->category_name << " "
                       << collided_obj->id << std::endl;
-    }
     std::cout << "Collided objects: " << std::endl;
     for (const auto& collided_object : collided_objects)
         std::cout << collided_object->category_name << " "
@@ -1731,24 +1732,22 @@ void MapProcessingNode::GlobalRegulation(const std::vector<Obj3D::Ptr>& objects,
                 }
             }
             collided_objects.clear();
-            for (auto& collided_pair : collided_pairs)
+            for (const auto& collided_pair : collided_pairs)
             {
                 if (collided_pair.second.size() > 0)
                     collided_objects.emplace(collided_pair.first);
-                for (auto& collided_obj : collided_pair.second)
+                for (const auto& collided_obj : collided_pair.second)
                     collided_objects.emplace(collided_obj);
             }
         }
 
         std::cout << "Collision pairs: " << std::endl;
         for (const auto& collided_pair : collided_pairs)
-        {
             for (const auto& collided_obj : collided_pair.second)
                 std::cout << collided_pair.first->category_name << " "
                           << collided_pair.first->id << " "
                           << collided_obj->category_name << " "
                           << collided_obj->id << std::endl;
-        }
         std::cout << "Collided objects: " << std::endl;
         for (const auto& collided_object : collided_objects)
             std::cout << collided_object->category_name << " "
@@ -1779,20 +1778,20 @@ bool MapProcessingNode::ValidateWallConstraint(const std::vector<Eigen::Vector4f
 void MapProcessingNode::ComputeCollision(
         const std::unordered_map<Obj3D::Ptr, ObjCADCandidate::Ptr>& map_candidate,
         const std::unordered_map<Obj3D::Ptr,
-            std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map,
+                                 std::unordered_map<Obj3D::Ptr, float>>& possible_collision_map,
         std::unordered_map<Obj3D::Ptr, std::vector<Obj3D::Ptr>>& collided_pairs,
         std::set<Obj3D::Ptr>& collided_objects)
 {
     ROS_INFO("Start collision check!");
     // Loop over all map objects and check collision based on the possible_collision_map
-    for (auto& obj_candidate : map_candidate)
+    for (const auto& obj_candidate : map_candidate)
     {
         Obj3D::Ptr object = obj_candidate.first;
         auto it = possible_collision_map.find(object);
         if (it != possible_collision_map.end())
         {
             pcl::PolygonMesh::Ptr candidate_mesh_1 = obj_candidate.second->GetTransformedMeshPtr();
-            for (auto& collided : it->second)
+            for (const auto& collided : it->second)
             {
                 Obj3D::Ptr object_to_check = collided.first;
                 auto check_it = map_candidate.find(object_to_check);
@@ -1813,10 +1812,7 @@ void MapProcessingNode::ComputeCollision(
                     if (collide_it != collided_pairs.end())
                         collide_it->second.push_back(object_to_check);
                     else
-                    {
-                        std::vector<Obj3D::Ptr> collide_vec = {object_to_check};
-                        collided_pairs.insert(std::make_pair(object, collide_vec));
-                    }
+                        collided_pairs.insert({object, {object_to_check}});
                     collided_objects.emplace(object);
                     collided_objects.emplace(object_to_check);
                 }
@@ -1835,7 +1831,7 @@ float MapProcessingNode::RecomputeCollision(const Obj3D::Ptr& object,
         std::vector<Obj3D::Ptr>& collided_objects)
 {
     float total_penetration = 0.0f;
-    for (auto& collide_to_check : possible_collided_objects)
+    for (const auto& collide_to_check : possible_collided_objects)
     {
         auto obj_it = map_candidate.find(collide_to_check.first);
         if (obj_it != map_candidate.end())
@@ -1872,10 +1868,9 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
     for (int i = 0; i < objects.size(); i++)
         // Only include nodes without supporting parent, e.g. Floor, Background
         if (objects[i]->GetSupportingParent().first == nullptr)
-            obj_to_check.push_back(
-                    std::make_pair(objects[i],
-                                   std::make_pair(objects[i]->GetSupportingParent().second,
-                                                  Eigen::Matrix4f::Identity())));
+            obj_to_check.push_back({objects[i],
+                                    {objects[i]->GetSupportingParent().second,
+                                     Eigen::Matrix4f::Identity()}});
 
     while (obj_to_check.size() > 0)
     {
@@ -1931,13 +1926,14 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
                             label_iou_vec.push_back(std::make_pair(gt_pair.first, iou));
                     }
                     // Sort it
-                    auto cmp = [](const auto & a, const auto & b) -> bool {return a.second > b.second;};
+                    auto cmp = [](const auto & a, const auto & b) -> bool
+                        {return a.second > b.second;};
                     std::sort(label_iou_vec.begin(), label_iou_vec.end(), cmp);
                 }
                 object_node->setIoUs(label_iou_vec);
             }
 
-            for (const auto child : current_object->GetSupportingChildren())
+            for (const auto& child : current_object->GetSupportingChildren())
             {
                 Obj3D::Ptr child_object = child.first;
                 Eigen::Vector4f plane = cad->GetPlanes()
@@ -1945,22 +1941,19 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
                 Eigen::Vector4f transformed_supporting_plane =
                     TransformPlaneLocalToGlobal(plane, transform);
 
-                obj_to_check.push_back(
-                        std::make_pair(child_object,
-                                       std::make_pair(transformed_supporting_plane,
-                                                      transform_no_scale)));
+                obj_to_check.push_back({child_object,
+                                        {transformed_supporting_plane,
+                                         transform_no_scale}});
             }
         }
         else  // No CAD candidate
         {
-            for (const auto child : current_object->GetSupportingChildren())
+            for (const auto& child : current_object->GetSupportingChildren())
             {
                 Obj3D::Ptr child_object = child.first;
                 Eigen::Vector4f plane = current_object->GetSupportingPlanes()[child.second].second;
-                obj_to_check.push_back(
-                        std::make_pair(child_object,
-                                       std::make_pair(plane,
-                                                      Eigen::Matrix4f::Identity())));
+                obj_to_check.push_back({child_object,
+                                        {plane, Eigen::Matrix4f::Identity()}});
             }
         }
         obj_to_check.erase(obj_to_check.begin());
@@ -1970,7 +1963,7 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
     {
         std::vector<pgm::NodeBase::Ptr> nodes = contact_graph->getNodes();
         std::cout << "PG Nodes" << std::endl;
-        for (auto n : nodes)
+        for (const auto& n : nodes)
             std::cout << n << std::endl;
     }
 }
@@ -2026,7 +2019,7 @@ void MapProcessingNode::Run()
         std::vector<int> viz_ids;
         std::vector<pcl::PolygonMesh::Ptr> viz_meshes;
         std::vector<OBBox> viz_boxes;
-        for (auto& object : objects)
+        for (const auto& object : objects)
         {
             viz_meshes.push_back(object->GetMeshPtr());
             viz_boxes.push_back(object->GetBox());
@@ -2041,8 +2034,10 @@ void MapProcessingNode::Run()
     //// Build contact graph
     // Decide supporting parents for all objects
     ROS_INFO("Compute supporting relations...");
-    std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>> parent_child_map;
-    std::queue<Obj3D::Ptr> obj_to_check;  // Nodes connected to the root node in the contact graph
+    std::unordered_map<Obj3D::Ptr,
+                       std::unordered_map<Obj3D::Ptr, Eigen::Vector4f>> parent_child_map;
+    // Nodes connected to the root node in the contact graph
+    std::queue<Obj3D::Ptr> obj_to_check;
     DecideSupportingParents(objects, parent_child_map, obj_to_check);
 
     // Refine objects using the supporting planes
@@ -2074,7 +2069,8 @@ void MapProcessingNode::Run()
         MatchCADToSegmentsCoarse(objects, cad_database, cad_candidates_map);
 
 
-        //// Validate physics and supporting affordance, and return k best candidates for each map object
+        //// Validate physics and supporting affordance
+        //// and return k best candidates for each map object
         ROS_INFO("Prune CAD candidates using supporting affordance...");
         std::unordered_map<Obj3D::Ptr, std::vector<ObjCADCandidate::Ptr>> cad_selected_candidates;
         for (auto& cad_candidates_pair : cad_candidates_map)
@@ -2086,9 +2082,12 @@ void MapProcessingNode::Run()
             for (auto& candidate : cad_candidates_pair.second)
             {
                 // Check supported area & supporting affordance
-                if (!ValidateSupportedArea (candidate, 0.3))
+                // If the 2D bbox area of those sampled CAD points close to CAD model bottom surface
+                //      is greater than 0.3 * the 2D bbox area of CAD bbox,
+                //      supporting area is sufficient.
+                if (!ValidateSupportedArea(candidate, 0.3))
                     continue;
-                else if (ValidateSupportingAffordance (candidate))
+                else if (ValidateSupportingAffordance(candidate))
                 {
                     candidate_vec.push_back(candidate);
                     count++;
@@ -2098,14 +2097,14 @@ void MapProcessingNode::Run()
                 if (count > k_cad_candidates_)
                     break;
             }
-            cad_selected_candidates.insert(std::make_pair(cad_candidates_pair.first, candidate_vec));
+            cad_selected_candidates.insert({cad_candidates_pair.first, candidate_vec});
             std::cout << std::endl;
         }
 
 
         //// Fine optimization-based CAD alignment and matching
         ROS_INFO("Compute potential collision pairs...");
-        // Compute possible collisions
+        // Compute possible collisions between non-supporting objects
         std::unordered_map<Obj3D::Ptr, std::unordered_map<Obj3D::Ptr, float>> possible_collision_map;
         ComputePotentialCollisionPairs(cad_selected_candidates, possible_collision_map);
         ROS_INFO("Align CAD models...");
