@@ -43,6 +43,9 @@ MapProcessingNode::MapProcessingNode(ros::NodeHandle& node_handle)
     node_handle_.param<bool>("if_verbose", if_verbose_, false);
     node_handle_.param<bool>("match_ground_truth", match_ground_truth_, false);
     node_handle_.param<bool>("save_contact_graph", save_contact_graph_, true);
+    node_handle_.param<bool>("save_original_cad_pose", save_original_cad_pose_, false);
+    node_handle_.param<bool>("save_with_cad_scale", save_with_cad_scale_, false);
+    node_handle_.param<bool>("fix_floor_table_support", fix_floor_table_support_, false);
     node_handle_.param<bool>("match_cad", match_cad_, true);
     node_handle_.param<bool>("match_cabinet", match_cabinet_, false);
     node_handle_.param<bool>("filter_small_objects", filter_small_objects_, false);
@@ -76,6 +79,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
     std::string cad_dataset = "", cad_id, category_name;
     std::vector<Eigen::Vector4f> planes;
     Eigen::Vector3f aligned_dims;
+    float scale = 1.0f;
     Eigen::Matrix4f aligned_transform = Eigen::Matrix4f::Identity();
 
     // Iterate through each line and split the content
@@ -141,7 +145,18 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
                         aligned_transform = Eigen::Map<Eigen::Matrix4f>(data).transpose();
                         break;
                     }
-                    // case 2:  // scale ",0.12345,"
+                    case 2:  // scale ",0.12345,"
+                    {
+                        std::stringstream ss(subline);
+                        std::getline(ss, element, ',');
+                        if (std::getline(ss, element, ','))
+                        {
+                            scale = std::stof(element);
+                            if (if_verbose_)
+                                std::cout << "scale: " << scale << std::endl;
+                        }
+                        break;
+                    }
                     case 3:  // aligned_dim
                     {
                         std::stringstream ss(subline);
@@ -234,7 +249,7 @@ void MapProcessingNode::LoadObjectDatabase(std::unordered_map<std::string,
 
         // Store into ObjCAD
         ObjCAD::Ptr object_cad = std::make_shared<ObjCAD> (cad_dataset, cad_id,
-                category_name, planes, aligned_dims);
+                category_name, planes, aligned_dims, scale);
         object_cad->SetAlignedTransform(aligned_transform);
 
         // If choose not to fit CADs for cabinets
@@ -488,6 +503,26 @@ void MapProcessingNode::DecideSupportingParents(const std::vector<Obj3D::Ptr>& o
                 // Eq. 3 in paper
                 std::vector<std::pair<Eigen::Vector4f, float>> plane_score_vec;
                 ComputeSupportingScores(objects[i], parent_it->second[j], plane_score_vec);
+
+                // For Table and Floor, set supporting scores to be 1.0
+                // so partially observed table can still have floor as its supporting parent
+                if (fix_floor_table_support_ &&
+                    objects[i]->category_name.compare("Table") == 0 &&
+                    parent_it->second[j]->category_name.compare("Floor") == 0)
+                {
+                    if (plane_score_vec.size() == 0)
+                        ROS_ERROR("Floor has no supporting plane for Table");
+                    else if (plane_score_vec.size() > 1)
+                        ROS_ERROR("Floor has more than one supporting planes for Table");
+
+                    plane_score_vec[0].second = 1.0f;
+                    std::cout << "Fixing Floor-Table support with plane ("
+                              << plane_score_vec[0].first(0) << ", "
+                              << plane_score_vec[0].first(1) << ", "
+                              << plane_score_vec[0].first(2) << ", "
+                              << plane_score_vec[0].first(3) << ")"
+                              << std::endl;
+                }
 
                 for (auto score_it = plane_score_vec.begin();
                           score_it != plane_score_vec.end(); score_it++)
@@ -777,7 +812,6 @@ void MapProcessingNode::MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& 
     for (int i = 0; i < objects.size(); i++)
     {
         std::string category = objects[i]->category_name;
-        std::cout << category << objects[i]->id << std::endl;
 
         auto cate_it = cad_database.find(category);
         if (cate_it != cad_database.end())
@@ -882,7 +916,13 @@ void MapProcessingNode::MatchCADToSegmentsCoarse(const std::vector<Obj3D::Ptr>& 
 
             ros::Time end = ros::Time::now();
             // std::cout << "time: " << (end-start).toSec() << std::endl;
+
+            std::cout << category << objects[i]->id << ": found "
+                      << cad_candidates.size() << " CAD candidates" << std::endl;
         }
+        else
+            std::cout << category << objects[i]->id
+                      << ": no CAD model of same category" << std::endl;
     }
 }
 
@@ -1894,10 +1934,13 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
             // Adjust height according to the supported plane of parent
             candidate->SetHeight(-supported_plane(3) + transformed_dims(ground)/2);
             // Transform without/with scale
-            Eigen::Matrix4f transform_no_scale = candidate->GetTransform(false, false);
+            // Output original unaligned CAD pose with no scale or
+            // Output aligned CAD pose with no scale
+            Eigen::Matrix4f transform_saving = candidate->GetTransform(false,
+                    !save_original_cad_pose_);
             Eigen::Matrix4f transform = candidate->GetTransform();
 
-            Eigen::Matrix4f relative_transform = parent_transform.inverse() * transform_no_scale;
+            Eigen::Matrix4f relative_transform = parent_transform.inverse() * transform_saving;
             Eigen::Quaternionf quat(relative_transform.topLeftCorner<3, 3>());
             pgm::Point pos(relative_transform(0, 3),
                            relative_transform(1, 3),
@@ -1907,7 +1950,7 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
             std::cout << current_object->category_name << current_object->id << std::endl;
             object_node->setCadDataset(cad->cad_dataset);
             object_node->setCadID(cad->cad_id);
-            object_node->setScale(candidate->GetScale());
+            object_node->setScale(candidate->GetScale(save_with_cad_scale_));
             object_node->setPose(pos, quaternion);
 
             if (gt_objects.size() > 0)
@@ -1943,7 +1986,7 @@ void MapProcessingNode::FillContactGraph(const std::vector<Obj3D::Ptr>& objects,
 
                 obj_to_check.push_back({child_object,
                                         {transformed_supporting_plane,
-                                         transform_no_scale}});
+                                         transform_saving}});
             }
         }
         else  // No CAD candidate

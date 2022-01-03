@@ -142,11 +142,11 @@ void Obj3D::UpdatePlanesViaSupporting()
 }
 
 
-Eigen::Matrix4f ObjCADCandidate::GetTransform(bool with_scale, bool aligned_trans)
+Eigen::Matrix4f ObjCADCandidate::GetTransform(bool with_scale, bool aligned_trans) const
 {
     OBBox box = object->GetBox();
     Eigen::Matrix4f transform_matrix;
-    if (with_scale)
+    if (with_scale || !aligned_trans)
         // world to scaled box
         transform_matrix = GetHomogeneousTransformMatrix(box.pos, box.quat, scale);
     else
@@ -159,8 +159,17 @@ Eigen::Matrix4f ObjCADCandidate::GetTransform(bool with_scale, bool aligned_tran
         transform_matrix(ground, 3) = absolute_height;
 
     if (!aligned_trans)
-        // world to CAD
+    {
+        // world to scaled unaligned CAD
         transform_matrix = transform_matrix * cad_candidate->GetAlignedTransform();
+        if (!with_scale)
+        {
+            Eigen::Matrix4f unscaled_transform = Eigen::Matrix4f::Identity();
+            unscaled_transform.topLeftCorner(3, 3) /= scale;
+            // world to unaligned CAD
+            transform_matrix = transform_matrix * unscaled_transform;
+        }
+    }
 
     return transform_matrix;
 }
@@ -175,7 +184,7 @@ OBBox ObjCADCandidate::GetAlignedBox()
 }
 
 
-Eigen::MatrixXf ObjCADCandidate::GetAlignedBoxCorners4D()
+Eigen::MatrixXf ObjCADCandidate::GetAlignedBoxCorners4D() const
 {
     Eigen::Matrix4f transform = GetTransform();
     Eigen::Vector3f aligned_dims = GetCADPtr()->GetDims();

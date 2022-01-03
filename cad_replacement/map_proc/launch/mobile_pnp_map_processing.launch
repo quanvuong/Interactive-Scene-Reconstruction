@@ -6,6 +6,12 @@
 
       <param name="match_cad" type="bool" value="true" />
       <param name="save_contact_graph" type="bool" value="true" />
+      <!-- whether to save CAD pose in original unaligned frame or in aligned frame -->
+      <param name="save_original_cad_pose" type="bool" value="true" />
+      <!-- whether to save with CAD scale -->
+      <param name="save_with_cad_scale" type="bool" value="true" />
+      <!-- whether to fix floor-table supporting relationship -->
+      <param name="fix_floor_table_support" type="bool" value="true" />
       <!-- in accordance with mapping -->
       <param name="ground_axis" type="int" value="2" />
       <!-- number of selected cad candidates for each map object -->

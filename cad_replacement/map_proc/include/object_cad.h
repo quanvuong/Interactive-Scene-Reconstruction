@@ -104,7 +104,7 @@ public:
     void UpdatePlanesViaSupporting();
 
     // Get transform in world frame
-    Eigen::Matrix4f GetBoxTransform() {return GetHomogeneousTransformMatrix (box.pos, box.quat, 1.0);}
+    Eigen::Matrix4f GetBoxTransform() const {return GetHomogeneousTransformMatrix(box.pos, box.quat, 1.0);}
 
     // Public variables
     int id;
@@ -134,9 +134,10 @@ public:
 
     // Constructor
     ObjCAD(const std::string& dataset, const std::string& id, const std::string& category,
-           const std::vector<Eigen::Vector4f>& planes_input, const Eigen::Vector3f& dims)
+           const std::vector<Eigen::Vector4f>& planes_input, const Eigen::Vector3f& dims,
+           const float scale = 1.0)
         : cad_dataset(dataset), cad_id(id), category_name(category),
-          planes(planes_input), aligned_dims(dims)
+          planes(planes_input), aligned_dims(dims), cad_scale(scale)
     {
         diameter = sqrt(dims.transpose() * dims);
         aligned_transform = Eigen::Matrix4f::Identity();
@@ -147,6 +148,7 @@ public:
     float GetDiameter() const {return diameter;}
     std::vector<Eigen::Vector4f> GetPlanes() const {return planes;}
     Eigen::Matrix4f GetAlignedTransform() const {return aligned_transform;}
+    float GetScale() const {return cad_scale;}
     pcl::PolygonMesh::Ptr GetMeshPtr()
     {
         if (mesh == nullptr)
@@ -183,6 +185,7 @@ private:
     Eigen::Vector3f aligned_dims;
     Eigen::Matrix4f aligned_transform;  // No scale, T_aligned_orig
     float diameter;
+    float cad_scale;
 
     pcl::PolygonMesh::Ptr mesh;
     pcl::PointCloud<PointT>::Ptr sample_cloud;
@@ -209,21 +212,27 @@ public:
     }
 
     // Get private variables
-    Obj3D::Ptr GetObjPtr() {return object;}
-    ObjCAD::Ptr GetCADPtr() {return cad_candidate;}
-    int GetPoseID() {return pose_index;}
-    float GetScale() {return scale;}
-    float GetCoarseMatchingError() {return coarse_matching_error;}
-    float GetFineMatchingError() {return fine_matching_error;}
-    std::vector<int> GetSupportingPlaneMatch() {return supporting_plane_matching_index;}
-    std::vector<int> GetPlaneMatch() {return plane_matching_index;}
+    Obj3D::Ptr GetObjPtr() const {return object;}
+    ObjCAD::Ptr GetCADPtr() const {return cad_candidate;}
+    int GetPoseID() const {return pose_index;}
+    float GetScale(bool with_cad_scale = false) const
+    {
+        if (with_cad_scale)
+            return cad_candidate->GetScale() * scale;
+        else
+            return scale;
+    }
+    float GetCoarseMatchingError() const {return coarse_matching_error;}
+    float GetFineMatchingError() const {return fine_matching_error;}
+    std::vector<int> GetSupportingPlaneMatch() const {return supporting_plane_matching_index;}
+    std::vector<int> GetPlaneMatch() const {return plane_matching_index;}
 
     // Get transform in world frame
-    Eigen::Matrix4f GetTransform(bool with_scale = true, bool aligned_trans = true);
+    Eigen::Matrix4f GetTransform(bool with_scale = true, bool aligned_trans = true) const;
     // Get aligned box
     OBBox GetAlignedBox();
     // Get aligned box corners in generalized coordinate
-    Eigen::MatrixXf GetAlignedBoxCorners4D();
+    Eigen::MatrixXf GetAlignedBoxCorners4D() const;
     // Get transformed mesh, sampled cloud
     pcl::PolygonMesh::Ptr GetTransformedMeshPtr();
     pcl::PointCloud<PointT>::Ptr GetTransformedSampledCloudPtr();
