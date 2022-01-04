@@ -13,21 +13,29 @@ The two packages under this directory:
 
 ## 1. Usage
 
+### 1.0 Please recompile to update changes
+
+``` shell
+catkin build -DPYTHON_EXECUTABLE=/usr/bin/python3 panoptic_mapping_pipeline map_proc scene_builder gazebo_simulation
+```
+
+If you need debugging tags, do
+``` shell
+catkin build -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG="-g -fsanitize=address" panoptic_mapping_pipeline map_proc scene_builder gazebo_simulation
+```
+
 ### 1.1 Download CAD dataset
 
-We collect a CAD dataset with rigid CAD models from [ShapeNetSem](https://shapenet.org/) and articulated CAD models from the internet. We preprocess the CAD models to transform them into the same canonical pose (+z up, -y front, centered, match real dimensions) and estimate planes on meshes. We also convert articulated CAD models into rigid ones for CAD replacement.
-
-Please download the dataset from [this Google Drive link](https://drive.google.com/file/d/1cQ_bwdK7-jyIUMsteClNdiXIZWrYT5cX/view?usp=sharing), and **extract it under the root directory of `Interactive-Scene-Reconstruction`**.
-
+Unzip "cad_dataset_sapien.zip" into repo's root directory.
 
 ### 1.2 Launch the `map_processing_node`
 
-First make sure you have the result of panoptic mapping under `Interactive-Scene-Reconstruction/output/$SEQUENCE/`, where `$SEQUENCE` is the sequence name specified when launching the panoptic mapping pipeline (`sceneNN_test` by default). We also provide an example result in this [Google Drive link](https://drive.google.com/file/d/1P2fgpqfWpkhg-CFKS3YpXGP70aKf9tTe/view?usp=sharing) ; please download and extract it under `Interactive-Scene-Reconstruction/output/`.
+First make sure you have the result of panoptic mapping under `Interactive-Scene-Reconstruction/output/$SEQUENCE/`, where `$SEQUENCE` is the sequence name specified when launching the panoptic mapping pipeline (`sceneNN_test` by default). Should already be in repo as `mobile_pnp_0-1` and `mobile_pnp_noisy_0-1`.
 
 Then launch the ros node via:
 
 ``` shell
-roslaunch map_proc map_processing.launch sequence:=sceneNN_test
+roslaunch map_proc mobile_pnp_map_processing.launch sequence:=mobile_pnp_0-1
 ```
 
 *Note that to close a viewer and move on to the next step, press `a` on your keyboard*.

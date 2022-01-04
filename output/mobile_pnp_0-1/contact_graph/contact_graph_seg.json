@@ -1,0 +1,420 @@
+{
+    "edges": [
+        {
+            "dst_id": 2,
+            "src_id": 11
+        },
+        {
+            "dst_id": 8,
+            "src_id": 11
+        },
+        {
+            "dst_id": 3,
+            "src_id": 11
+        },
+        {
+            "dst_id": 12,
+            "src_id": 11
+        },
+        {
+            "dst_id": 7,
+            "src_id": 11
+        },
+        {
+            "dst_id": 4,
+            "src_id": 11
+        },
+        {
+            "dst_id": 9,
+            "src_id": 11
+        },
+        {
+            "dst_id": 11,
+            "src_id": 6
+        },
+        {
+            "dst_id": 6,
+            "src_id": 0
+        },
+        {
+            "dst_id": 5,
+            "src_id": 11
+        },
+        {
+            "dst_id": 10,
+            "src_id": 11
+        },
+        {
+            "dst_id": 1,
+            "src_id": 0
+        }
+    ],
+    "nodes": [
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 4,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 2,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 8,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Can",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 3,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 12,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Bottle",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 5,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 10,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Bottle",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 7,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 9,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Mug",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 11,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Table",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 6,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Floor",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "box": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "cad_dataset": "",
+            "cad_id": "",
+            "id": 1,
+            "ious": [
+                [
+                    -1,
+                    1.0
+                ]
+            ],
+            "label": "Background",
+            "node_type": "ObjectNode",
+            "orientation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "scale": 1.0
+        },
+        {
+            "concept": "Room",
+            "id": 0,
+            "node_type": "ConceptNode"
+        }
+    ],
+    "root_id": 0
+}
