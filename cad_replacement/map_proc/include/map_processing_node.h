@@ -129,6 +129,7 @@ private:
     bool visualize_optimized_alignment_;
     bool visualize_plane_estimation_;
     bool visualize_global_regulation_;
+    bool visualize_final_scene_;
 
     bool if_verbose_;
     bool save_contact_graph_;

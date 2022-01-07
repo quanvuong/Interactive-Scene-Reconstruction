@@ -39,6 +39,7 @@ MapProcessingNode::MapProcessingNode(ros::NodeHandle& node_handle)
     node_handle_.param<bool>("visualize_optimized_alignment", visualize_optimized_alignment_, false);
     node_handle_.param<bool>("visualize_plane_estimation", visualize_plane_estimation_, false);
     node_handle_.param<bool>("visualize_global_regulation", visualize_global_regulation_, false);
+    node_handle_.param<bool>("visualize_final_scene", visualize_final_scene_, true);
 
     node_handle_.param<bool>("if_verbose", if_verbose_, false);
     node_handle_.param<bool>("match_ground_truth", match_ground_truth_, false);
@@ -2171,29 +2172,32 @@ void MapProcessingNode::Run()
         }
 
         //// Visualize the scene
-        ROS_INFO("Visualize scene!");
-        std::vector<OBBox> objects_viz;
-        std::vector<pcl::PolygonMesh::Ptr> meshes;
-        std::vector<int> id;
-        for (int i = 0; i < objects.size(); i++)
+        if (visualize_final_scene_)
         {
-            auto obj_it = map_candidate.find(objects[i]);
-            if (obj_it != map_candidate.end())
+            ROS_INFO("Visualize scene!");
+            std::vector<OBBox> objects_viz;
+            std::vector<pcl::PolygonMesh::Ptr> meshes;
+            std::vector<int> id;
+            for (int i = 0; i < objects.size(); i++)
             {
-                ObjCADCandidate::Ptr candidate = obj_it->second;
-                pcl::PolygonMesh::Ptr mesh = candidate->GetTransformedMeshPtr();
-                OBBox box = candidate->GetAlignedBox();
+                auto obj_it = map_candidate.find(objects[i]);
+                if (obj_it != map_candidate.end())
+                {
+                    ObjCADCandidate::Ptr candidate = obj_it->second;
+                    pcl::PolygonMesh::Ptr mesh = candidate->GetTransformedMeshPtr();
+                    OBBox box = candidate->GetAlignedBox();
 
-                meshes.push_back(mesh);
-                objects_viz.push_back(box);
+                    meshes.push_back(mesh);
+                    objects_viz.push_back(box);
+                }
+                else
+                    meshes.push_back(objects[i]->GetMeshPtr());
+                id.push_back(objects[i]->id);
             }
-            else
-                meshes.push_back(objects[i]->GetMeshPtr());
-            id.push_back(objects[i]->id);
+            viewer->AddPolygonMeshes(meshes, id);
+            viewer->AddCubes(objects_viz);
+            viewer->VisualizeOnce(id);
         }
-        viewer->AddPolygonMeshes(meshes, id);
-        viewer->AddCubes(objects_viz);
-        viewer->VisualizeOnce(id);
     }
 
     ROS_INFO("Success!");

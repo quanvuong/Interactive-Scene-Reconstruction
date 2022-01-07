@@ -60,9 +60,11 @@
   <arg name="rgb_frame_id" default="scenenn_camera_frame" />
   <arg name="depth_frame_id" default="scenenn_camera_frame" />
 
+  <!-- node output location -->
+  <arg name="output" default="screen" />
 
   <!-- launch node for image processing & panoptic segmentation -->
-  <node name="robot_perception_node" pkg="perception_ros" type="perception_node.py" output="screen" unless="$(arg use_GT_seg)">
+  <node name="robot_perception_node" pkg="perception_ros" type="perception_node.py" output="$(arg output)" unless="$(arg use_GT_seg)">
       <remap from="/camera/rgb/image_raw" to="$(arg rgb_raw_topic)"/>
       <remap from="/camera/depth/image_raw" to="$(arg depth_raw_topic)"/>
       <remap from="/camera/rgb/camera_info" to="$(arg camera_info_topic)"/>
@@ -97,7 +99,8 @@
   </include>
 
   <!-- launch node for depth segmentation & per-frame segment generation -->
-  <node name="pc_seg_generator_node" pkg="perception_ros" type="pc_seg_generator_node" output="screen" if="$(arg pub_point_cloud_seg)">
+  <node name="pc_seg_generator_node" pkg="perception_ros" type="pc_seg_generator_node" output="$(arg output)" if="$(arg pub_point_cloud_seg)">
+  <!--node name="pc_seg_generator_node" pkg="perception_ros" type="pc_seg_generator_node" output="$(arg output)" if="$(arg pub_point_cloud_seg)" launch-prefix="gdb -args" -->
       <rosparam command="load" file="$(find perception_ros)/cfg/seg_param.yaml" />
       <rosparam command="load" file="$(find perception_ros)/cfg/pc_gen_param.yaml" />
       <rosparam command="load" file="$(find panoptic_mapping_pipeline)/cfg/mobile_pnp_pano_class.yaml" />
@@ -116,7 +119,7 @@
   </node>
 
   <!-- launch node for panoptic mapping -->
-  <node name="gsm_node" pkg="gsm_node" type="gsm_node" output="screen" if="$(arg mapping)">
+  <node name="gsm_node" pkg="gsm_node" type="gsm_node" output="$(arg output)" if="$(arg mapping)">
       <param name="output_folder" type="string" value="$(find panoptic_mapping_pipeline)/../../output/$(arg sequence)" />
       <rosparam command="load" file="$(find gsm_node)/cfg/default.yaml" />
       <rosparam command="load" file="$(find gsm_node)/cfg/pano_mapping.yaml" />
