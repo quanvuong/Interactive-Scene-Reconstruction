@@ -79,7 +79,8 @@ def get_art_visual_mesh(art: sapien.Articulation, eps=1e-6) -> o3d.geometry.Tria
     return art_mesh
 
 
-def process_data(obj_model_files, save_aligned_obj_mesh=False, add_table_top_plane=False):
+def process_data(obj_model_files, save_aligned_obj_mesh=False,
+                 add_table_top_plane=False, remove_table_gravity_aligned_planes=False):
     columns_str_list = ['dataset','instance_id','category',
                         'transform','scale','aligned_dims','aligned_planes']
     target_df = pd.DataFrame([],columns=columns_str_list)
@@ -114,7 +115,8 @@ def process_data(obj_model_files, save_aligned_obj_mesh=False, add_table_top_pla
             aligned_planes, aligned_dims, transform, transform_no_scale \
                 = get_aligned_planes(instance_id, art_mesh, scale,
                                      save_mesh=save_aligned_obj_mesh,
-                                     add_table_top_plane=(add_table_top_plane and obj_cat == 'Table'))
+                                     add_table_top_plane=(add_table_top_plane and obj_cat == 'Table'),
+                                     remove_table_gravity_aligned_planes=(remove_table_gravity_aligned_planes and obj_cat == 'Table'))
 
             aligned_planes_str = '\,'.join([np_array_to_str(x, '\,') for x in aligned_planes])
             aligned_dims_str = np_array_to_str(aligned_dims, '\,')
@@ -127,7 +129,8 @@ def process_data(obj_model_files, save_aligned_obj_mesh=False, add_table_top_pla
 
 def get_aligned_planes(instance_id: str, mesh: o3d.geometry.TriangleMesh, scale: float,
                        up=np.array([0,0,1]), front=np.array([0,-1,0]),
-                       viz = False, save_mesh = False, add_table_top_plane=False):
+                       viz = False, save_mesh = False,
+                       add_table_top_plane=False, remove_table_gravity_aligned_planes=False):
     """Input meshes are scaled for ShapeNet/PartNet"""
     # Get aligned coordinate
     if up.size > 0:
@@ -201,6 +204,11 @@ def get_aligned_planes(instance_id: str, mesh: o3d.geometry.TriangleMesh, scale:
     planes = detect_planes_from_mesh(mesh, distance_threshood=0.02,
                                      angle_threshood=5, max_iterations=800,
                                      min_area=min_area, max_plane_num=15)
+    if remove_table_gravity_aligned_planes:
+        orig_num_planes = len(planes)
+        planes = [plane for plane in planes if not np.isclose(np.abs(plane[2]), 1.0)]
+        print(f'Removed {len(planes) - orig_num_planes} gravity aligned planes for table')
+
     if add_table_top_plane:
         planes = [[0, 0, 1, -mesh.get_max_bound()[-1]]] + planes
         print('Adding table top plane: ', planes[0])
@@ -225,7 +233,8 @@ if __name__ == "__main__":
     }
     output_dataset_folder.mkdir(parents=True, exist_ok=True)
 
-    target_df = process_data(obj_model_files, save_aligned_obj_mesh=True, add_table_top_plane=True)
+    target_df = process_data(obj_model_files, save_aligned_obj_mesh=True,
+                             add_table_top_plane=True, remove_table_gravity_aligned_planes=True)
 
     output_csv_path = output_dataset_folder.parent / 'cad_models_partnet_shapenet.csv'
     target_df.to_csv(output_csv_path, sep=',',index=False)
