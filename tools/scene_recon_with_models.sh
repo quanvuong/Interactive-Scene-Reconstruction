@@ -4,8 +4,8 @@
 ############################################################
 # Section 0: Script-Specific Settings                      #
 ############################################################
-VOXEL_SIZE="0.02"  # 2 cm
-#VOXEL_SIZE="0.005"  # 5 mm
+#VOXEL_SIZE="0.02"  # 2 cm
+VOXEL_SIZE="0.005"  # 5 mm
 
 ############################################################
 # Section 1: Helper Function Definition                    #
@@ -38,6 +38,11 @@ save_roslaunch_log() {
     exit 3
   fi
   SAVE_LOG_DIR="${SCRIPTPATH}/../output/${SAVE_DIR_NAME}/${EXP_NAME}/${1}"
+  if [[ -d "$SAVE_LOG_DIR" ]] ; then
+    echo -e "\nRemoving old logs at ${SAVE_LOG_DIR} ...\n"
+    rm -r "$SAVE_LOG_DIR"
+    test_retval "remove old log saving directory ${SAVE_LOG_DIR}"
+  fi
   mkdir -p "$SAVE_LOG_DIR"
   test_retval "create log saving directory ${SAVE_LOG_DIR}"
   cp -r "$ROSLAUNCH_LOG_DIR"/* "$SAVE_LOG_DIR"
