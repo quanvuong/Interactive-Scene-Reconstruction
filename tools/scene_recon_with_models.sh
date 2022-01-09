@@ -4,6 +4,8 @@
 ############################################################
 # Section 0: Script-Specific Settings                      #
 ############################################################
+VOXEL_SIZE="0.02"  # 2 cm
+#VOXEL_SIZE="0.005"  # 5 mm
 
 ############################################################
 # Section 1: Helper Function Definition                    #
@@ -62,7 +64,12 @@ fi
 
 . "${SCRIPTPATH}/../../../devel/setup.bash"  # sourcing ROS project setup.bash
 
-SAVE_DIR_NAME=$(basename "$1")
+echo -e "\nSetting TSDF voxel size to be ${VOXEL_SIZE}\n"
+sed -i "/voxel_size/c\  voxel_size: ${VOXEL_SIZE}" "$(rospack find gsm_node)"/cfg/pano_mapping.yaml
+test_retval "set TSDF voxel size to be ${VOXEL_SIZE}"
+sleep 5
+
+SAVE_DIR_NAME="$(basename "$1")_${VOXEL_SIZE}"
 
 for file in "$1"/*.bag; do
   echo "Start mapping from ${file} ..."
