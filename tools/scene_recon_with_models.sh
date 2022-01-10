@@ -80,28 +80,28 @@ for file in "$1"/*.bag; do
   echo "Start mapping from ${file} ..."
   EXP_NAME=$(basename "$file" .bag)
 
-  roslaunch panoptic_mapping_pipeline mobile_pnp_pano_mapping.launch \
-            sequence:="${SAVE_DIR_NAME}/${EXP_NAME}" \
-            visualize_fusion_seg:=false \
-            output:=log &
-  ROSLAUNCH_PID="$!"
-  sleep 5  # sleep briefly for ROS
-  check_roslaunch_status  # Check if roslaunch starts successfully
-  ROSLAUNCH_LOG_DIR="$(roslaunch-logs)"
+  #roslaunch panoptic_mapping_pipeline mobile_pnp_pano_mapping.launch \
+  #          sequence:="${SAVE_DIR_NAME}/${EXP_NAME}" \
+  #          visualize_fusion_seg:=false \
+  #          output:=log &
+  #ROSLAUNCH_PID="$!"
+  #sleep 5  # sleep briefly for ROS
+  #check_roslaunch_status  # Check if roslaunch starts successfully
+  #ROSLAUNCH_LOG_DIR="$(roslaunch-logs)"
 
-  rosbag play -r 0.02 "$file"  # ~2 fps
-  test_retval "playback rosbag file ${file}"
-  sleep 10  # sleep briefly for ROS
+  #rosbag play -r 0.02 "$file"  # ~2 fps
+  #test_retval "playback rosbag file ${file}"
+  #sleep 10  # sleep briefly for ROS
 
-  rosservice call /gsm_node/generate_mesh
-  test_retval "rosservice call /gsm_node/generate_mesh"
-  rosservice call /gsm_node/extract_instances
-  test_retval "rosservice call /gsm_node/extract_instances"
-  sleep 5  # sleep briefly for ROS
+  #rosservice call /gsm_node/generate_mesh
+  #test_retval "rosservice call /gsm_node/generate_mesh"
+  #rosservice call /gsm_node/extract_instances
+  #test_retval "rosservice call /gsm_node/extract_instances"
+  #sleep 5  # sleep briefly for ROS
 
-  kill "$ROSLAUNCH_PID"
-  sleep 5  # sleep briefly for ROS
-  save_roslaunch_log "pano_mapping_log"
+  #kill "$ROSLAUNCH_PID"
+  #sleep 5  # sleep briefly for ROS
+  #save_roslaunch_log "pano_mapping_log"
 
   roslaunch map_proc mobile_pnp_map_processing.launch \
             sequence:="${SAVE_DIR_NAME}/${EXP_NAME}" \
