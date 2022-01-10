@@ -59,4 +59,5 @@ coverage.xml
 dependency/
 output/
 cad_dataset/
+cad_dataset_sapien/object_mesh/
 .vscode/
