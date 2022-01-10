@@ -20,6 +20,8 @@
       <param name="save_original_cad_pose" type="bool" value="true" />
       <!-- whether to save with CAD scale -->
       <param name="save_with_cad_scale" type="bool" value="true" />
+      <!-- whether to filter table above noisy points -->
+      <param name="filter_table_above_noisy_point" type="bool" value="true" />
       <!-- whether to fix floor-table supporting relationship -->
       <param name="fix_floor_table_support" type="bool" value="true" />
       <!-- in accordance with mapping -->

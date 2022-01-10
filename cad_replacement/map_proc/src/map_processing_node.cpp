@@ -46,6 +46,7 @@ MapProcessingNode::MapProcessingNode(ros::NodeHandle& node_handle)
     node_handle_.param<bool>("save_contact_graph", save_contact_graph_, true);
     node_handle_.param<bool>("save_original_cad_pose", save_original_cad_pose_, false);
     node_handle_.param<bool>("save_with_cad_scale", save_with_cad_scale_, false);
+    node_handle_.param<bool>("filter_table_above_noisy_point", filter_table_above_noisy_point_, false);
     node_handle_.param<bool>("fix_floor_table_support", fix_floor_table_support_, false);
     node_handle_.param<bool>("match_cad", match_cad_, true);
     node_handle_.param<bool>("match_cabinet", match_cabinet_, false);
@@ -293,6 +294,31 @@ void MapProcessingNode::LoadInstanceSegments(
                          cloud, true, leaf_size);
         pcl::PolygonMesh::Ptr mesh (new pcl::PolygonMesh);
         ReadMeshFromPLY(instance_segments_path_ + std::to_string(instance_label) + ".ply", mesh);
+
+        // Filter table above noisy points to fix table no CAD model issue
+        if (filter_table_above_noisy_point_ && category_name.compare("Table") == 0)
+        {
+            pcl::ExtractIndices<PointTFull> extract;
+            pcl::PointIndices::Ptr table_outliers (new pcl::PointIndices);
+            pcl::PointCloud<PointTFull>::Ptr table_no_noise_cloud (new pcl::PointCloud<PointTFull>);
+
+            for (size_t i = 0u; i < cloud->points.size(); ++i)
+            {
+                Eigen::Vector3d point (cloud->points[i].x, cloud->points[i].y, cloud->points[i].z);
+                if (point(ground) > 0.85)  // z value above 0.85 is noisy
+                    table_outliers->indices.push_back(i);
+            }
+            extract.setInputCloud(cloud);
+            extract.setIndices(table_outliers);
+            extract.setNegative(true);
+            extract.filter(*table_no_noise_cloud);
+            std::cout << "Filtered "
+                      << cloud->points.size() - table_no_noise_cloud->points.size()
+                      << " noisy table points above z=0.85"
+                      << std::endl;
+
+            cloud = table_no_noise_cloud;  // TODO: deallocation?
+        }
 
         // Scale the whole scene if set
         if (scale_ratio_ != 1.0)

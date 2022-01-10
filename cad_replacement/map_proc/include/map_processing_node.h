@@ -135,6 +135,7 @@ private:
     bool save_contact_graph_;
     bool save_original_cad_pose_;
     bool save_with_cad_scale_;
+    bool filter_table_above_noisy_point_;
     bool fix_floor_table_support_;
     bool match_ground_truth_;
     bool match_cad_;
