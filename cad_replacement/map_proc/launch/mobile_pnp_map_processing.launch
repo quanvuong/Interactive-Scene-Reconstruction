@@ -36,7 +36,7 @@
       <param name="lambda" type="double" value="0.5" />
 
       <!-- whether to filter small (extremely incomplete objects) -->
-      <param name="filter_small_objects" type="bool" value="true" />
+      <param name="filter_small_objects" type="bool" value="false" />
       <!-- record refined object 3D bounding box using supporting relations -->
       <param name="write_refined_bbox" type="bool" value="true" />
       <!-- scale the whole scene before cad replacement -->
