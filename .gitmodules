@@ -1,5 +1,5 @@
-[submodule "mapping/orb_slam2_ros"]
-	path = mapping/orb_slam2_ros
+[submodule "mapping/orb_slam_2_ros"]
+	path = mapping/orb_slam_2_ros
 	url = https://github.com/hmz-15/orb_slam_2_ros.git
 [submodule "mapping/perception_ros"]
 	path = mapping/perception_ros

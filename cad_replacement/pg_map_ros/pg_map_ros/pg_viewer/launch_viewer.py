@@ -44,7 +44,7 @@ def arg_parser():
         required=False,
         help="Parse graph JSON file"
     )
-    
+
     args = parser.parse_args()
 
     if args.mode == "viewer":
@@ -60,7 +60,7 @@ def arg_parser():
 
 if __name__ == "__main__":
     args = arg_parser()
-    
+
     if args.mode == "server":
         viewer = PgViewerServer(host=args.host, port=args.port)
         viewer.launch()

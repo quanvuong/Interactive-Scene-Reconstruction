@@ -61,7 +61,7 @@ def pack_instseg_(resp):
 
     return pkg_size + mask_pkg + info_bin
 
-    
+
 def pack_panoseg_(resp):
     """
     Pack detectron2 (Pano_seg) result data into binary
@@ -77,7 +77,7 @@ def pack_panoseg_(resp):
     compressed_map_bin = zlib.compress(seg_map.tobytes())
     map_size_bin = int2bin( len(compressed_map_bin) )
     map_data_pkg = map_size_bin + int2bin(w) + int2bin(h) + compressed_map_bin
-    
+
     # pack semantic information
     info_json = {
         "info": pano_resp[1],
@@ -96,13 +96,13 @@ DT_ENCODER = {
     "Pano_seg": pack_panoseg_,
     "Inst_seg": pack_instseg_
 }
-    
+
 
 class DetectronServer(TcpServer):
 
     def __init__(self, host, port, model_type="Pano_seg"):
         super(DetectronServer, self).__init__(host=host, port=port)
-        
+
         self.dt_ = DetectronWrapper(task=model_type)
         self.model_ = model_type
 
@@ -113,7 +113,7 @@ class DetectronServer(TcpServer):
 
         while not self.quit_event_.is_set():
             pack_size = conn.recv(4)
-            
+
             # end of Connection
             if not pack_size:
                 break
@@ -124,7 +124,7 @@ class DetectronServer(TcpServer):
 
             img = bin2img(data)
             ret = self.dt_.predict(img)
-            
+
             # send back response
             conn.sendall( self.pack_(ret, self.model_) )
 
@@ -138,7 +138,7 @@ class DetectronServer(TcpServer):
         else:
             raise Exception("Does not support type: {}".format(model_type))
 
-    
+
 if __name__ == "__main__":
     server = DetectronServer(host="192.168.1.94", port=8801, model_type="Pano_seg")
     server.launch()

@@ -57,19 +57,19 @@ class PgViewer(object):
             "margin": 50,
             "layout": layout
         }
-        
+
         if target is None:
             ig.plot(g, **visual_style)
         else:
             ig.plot(g, target=target, **visual_style)
 
-    
+
     def generate_vertex_color_(self, g):
         # colors = [COLOR_DICT[t] for t in g.vs["type"]]
         colors = ["red" for t in g.vs["type"]]
         return colors
 
-    
+
     def generate_vertex_shape_(self, g):
         # known shapes
         # circle, circular, diamond, box, rectangle, arrow, arrow-down, arrow-up

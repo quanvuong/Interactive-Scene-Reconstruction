@@ -13,7 +13,7 @@ struct Point{
     double y;
     double z;
 
-    Point(double x_=0, double y_=0, double z_=0){
+    explicit Point(double x_ = 0, double y_ = 0, double z_ = 0){
         x = x_;
         y = y_;
         z = z_;
@@ -25,7 +25,7 @@ struct Point{
         z = pt.z;
     }
 
-    std::vector<double> vectorize(){
+    std::vector<double> vectorize() const{
         return std::vector<double>({x, y, z});
     }
 };
@@ -36,7 +36,7 @@ struct Quaternion{
     double z;
     double w;
 
-    Quaternion(double x_=0, double y_=0, double z_=0, double w_=1){
+    explicit Quaternion(double x_ = 0, double y_ = 0, double z_ = 0, double w_ = 1){
         x = x_;
         y = y_;
         z = z_;
@@ -50,11 +50,11 @@ struct Quaternion{
         w = quat.w;
     }
 
-    std::vector<double> vectorize(){
+    std::vector<double> vectorize() const{
         return std::vector<double>({x, y, z, w});
     }
 };
-    
+
 enum class NodeType
 {
     ObjectNode,
@@ -64,15 +64,15 @@ enum class NodeType
 // Define vector of pairs
 // Usage: VecPair<int, float>
 template<typename T1, typename T2>
-using VecPair = std::vector<std::pair<T1, T2> >;
+using VecPair = std::vector<std::pair<T1, T2>>;
 
 
 std::ostream &operator<<(std::ostream&, const NodeType);
 
-std::ostream &operator<<(std::ostream&, const Quaternion);
+std::ostream &operator<<(std::ostream&, const Quaternion&);
 
-std::ostream &operator<<(std::ostream&, const Point);
+std::ostream &operator<<(std::ostream&, const Point&);
 
-} // end of namespace pgm
+}  // end of namespace pgm
 
 #endif

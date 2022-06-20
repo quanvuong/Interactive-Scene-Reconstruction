@@ -18,8 +18,12 @@ std::string cad_database_path;
 const std::vector<std::string> layout_class = {"Background", "Floor", "Wall", "Ceiling"};
 
 
-void Obj3D::ComputeBox() 
+void Obj3D::ComputeBox()
 {
+    // box is computed by (assuming z-axis is ground axis)
+    //      projecting cloud onto xy-plane
+    //      estimate 2D ApproxMVBB
+    //      construct a 3D bbox from the 2D MVBB, z-axis uses min/max
     ComputeGroundOrientedBoundingBox(cloud, box, ground);
     diameter = sqrt(box.aligned_dims.transpose() * box.aligned_dims);
     bottom_height = (box.pos.transpose()*ground_axis - box.aligned_dims.transpose()*ground_axis/2)(0);
@@ -27,25 +31,28 @@ void Obj3D::ComputeBox()
 }
 
 
-Eigen::MatrixXf Obj3D::GetBoxCorners4D ()
+Eigen::MatrixXf Obj3D::GetBoxCorners4D() const
 {
-    Eigen::Matrix4f transform = GetHomogeneousTransformMatrix (box.pos, box.quat);
+    Eigen::Matrix4f transform = GetHomogeneousTransformMatrix(box.pos, box.quat);
     Eigen::Vector3f aligned_dims = box.aligned_dims;
 
     // 8 box corners in local and global frames
-    Eigen::MatrixXf corners (4, 8);
-    corners << aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2,
-               aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2, aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
-               aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
+    Eigen::MatrixXf corners(4, 8);
+    corners << aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2,
+                    -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2,
+               aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
+                    aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
+               aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
+                    aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     corners = transform * corners;
-    
+
     return corners;
 }
 
 
 void Obj3D::ComputePlanes()
-{        
+{
     planes.clear();
     float distance_threshood = 0.03;
     if (box.aligned_dims.minCoeff()/4 < distance_threshood)
@@ -63,30 +70,33 @@ void Obj3D::ComputePotentialSupportingPlanes()
 }
 
 
-void Obj3D::ComputeSupportDistance(float child_bottom_height, std::vector<std::pair<Eigen::Vector4f, float>>& distances)
+void Obj3D::ComputeSupportDistance(float child_bottom_height,
+        std::vector<std::pair<Eigen::Vector4f, float>>& distances)
 {
     for (int i = 0; i < potential_supporting_planes.size(); i++)
     {
         float dist = std::abs(child_bottom_height + potential_supporting_planes[i](3));
-        distances.push_back(std::make_pair(potential_supporting_planes[i], dist));
+        distances.push_back({potential_supporting_planes[i], dist});
     }
     // Hidden planes
     if (potential_supporting_planes.size() == 0)
     {
-        Eigen::Vector4f hidden_plane_1 (ground_axis(0), ground_axis(1), ground_axis(2), -child_bottom_height);
+        Eigen::Vector4f hidden_plane_1(ground_axis(0), ground_axis(1), ground_axis(2),
+                                       -child_bottom_height);
         // Eigen::Vector4f hidden_plane_2 (ground_axis(0), ground_axis(1), ground_axis(2), -top_height);
         // distances.push_back(std::make_pair(hidden_plane_1, 0.0f));
-        // distances.push_back(std::make_pair(hidden_plane_2, std::abs(-top_height+child_bottom_height)));
-        distances.push_back(std::make_pair(hidden_plane_1, std::min(std::abs(-top_height+child_bottom_height), std::abs(-bottom_height+child_bottom_height))));
+        // distances.push_back({hidden_plane_2, std::abs(-top_height+child_bottom_height)});
+        distances.push_back({hidden_plane_1, std::min(std::abs(-top_height+child_bottom_height),
+                                                      std::abs(-bottom_height+child_bottom_height))});
     }
 }
 
 
-void Obj3D::RefineAsSupportingChild() 
+void Obj3D::RefineAsSupportingChild()
 {
     if (supporting_parent.first == nullptr)
     {
-        Eigen::Vector4f plane (0.0, 0.0, 0.0, 0.0);
+        Eigen::Vector4f plane(0.0, 0.0, 0.0, 0.0);
         plane.head(3) = ground_axis;
         supporting_parent = std::make_pair(nullptr, plane);
     }
@@ -97,18 +107,18 @@ void Obj3D::RefineAsSupportingChild()
     bottom_height = plane_height;
 }
 
-void Obj3D::UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane) 
+void Obj3D::UpdateAsSupportingParent(Obj3D::Ptr child, Eigen::Vector4f supporting_plane)
 {
     float plane_height = - supporting_plane(3);
     float supporting_plane_height_ratio = (plane_height - bottom_height)/box.aligned_dims(ground);
-    auto it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f) 
-                                                    { return (std::abs(f.first-supporting_plane_height_ratio) < 0.05);});
+    auto it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f)
+        {return (std::abs(f.first-supporting_plane_height_ratio) < 0.05);});
     if (it != supporting_planes.end())
-        supporting_children.insert(std::make_pair(child, it-supporting_planes.begin()));  
+        supporting_children.insert({child, it-supporting_planes.begin()});
     else
     {
-        supporting_planes.push_back(std::make_pair(supporting_plane_height_ratio, supporting_plane));
-        supporting_children.insert(std::make_pair(child, supporting_planes.size()-1));  
+        supporting_planes.push_back({supporting_plane_height_ratio, supporting_plane});
+        supporting_children.insert({child, supporting_planes.size()-1});
     }
 }
 
@@ -117,10 +127,10 @@ void Obj3D::UpdatePlanesViaSupporting()
 {
     for (auto plane_it = planes.begin(); plane_it != planes.end(); )
     {
-        if (IsSupportingPlane (*plane_it, ground_axis))
+        if (IsSupportingPlane(*plane_it, ground_axis))
         {
-            auto support_it = std::find_if(supporting_planes.begin(), supporting_planes.end(), [=] (const auto& f) 
-                                                                                    {return (std::abs(f.second(3)-(*plane_it)(3)) < 0.01);});
+            auto support_it = std::find_if(supporting_planes.begin(), supporting_planes.end(),
+                    [=] (const auto& f) {return (std::abs(f.second(3)-(*plane_it)(3)) < 0.01);});
             if (support_it != supporting_planes.end())
             {
                 planes.erase(plane_it);
@@ -129,28 +139,43 @@ void Obj3D::UpdatePlanesViaSupporting()
         }
         plane_it++;
     }
-} 
+}
 
 
-Eigen::Matrix4f ObjCADCandidate::GetTransform (bool with_scale)
+Eigen::Matrix4f ObjCADCandidate::GetTransform(bool with_scale, bool aligned_trans) const
 {
     OBBox box = object->GetBox();
     Eigen::Matrix4f transform_matrix;
-    if (with_scale)
-        transform_matrix = GetHomogeneousTransformMatrix (box.pos, box.quat, scale); // world to scaled box
+    if (with_scale || !aligned_trans)
+        // world to scaled box
+        transform_matrix = GetHomogeneousTransformMatrix(box.pos, box.quat, scale);
     else
-        transform_matrix = GetHomogeneousTransformMatrix (box.pos, box.quat); // world to box
-
-    transform_matrix = transform_matrix * refine_transform * canonical_base_transforms[pose_index]; // world to aligned CAD
+        // world to box
+        transform_matrix = GetHomogeneousTransformMatrix(box.pos, box.quat);
+    // world to aligned CAD
+    transform_matrix = transform_matrix * refine_transform * canonical_base_transforms[pose_index];
 
     if (set_absolute_height)
         transform_matrix(ground, 3) = absolute_height;
+
+    if (!aligned_trans)
+    {
+        // world to scaled unaligned CAD
+        transform_matrix = transform_matrix * cad_candidate->GetAlignedTransform();
+        if (!with_scale)
+        {
+            Eigen::Matrix4f unscaled_transform = Eigen::Matrix4f::Identity();
+            unscaled_transform.topLeftCorner(3, 3) /= scale;
+            // world to unaligned CAD
+            transform_matrix = transform_matrix * unscaled_transform;
+        }
+    }
 
     return transform_matrix;
 }
 
 
-OBBox ObjCADCandidate::GetAlignedBox ()
+OBBox ObjCADCandidate::GetAlignedBox()
 {
     pcl::PointCloud<PointT>::Ptr cloud = GetTransformedSampledCloudPtr();
     OBBox box;
@@ -159,49 +184,52 @@ OBBox ObjCADCandidate::GetAlignedBox ()
 }
 
 
-Eigen::MatrixXf ObjCADCandidate::GetAlignedBoxCorners4D ()
+Eigen::MatrixXf ObjCADCandidate::GetAlignedBoxCorners4D() const
 {
     Eigen::Matrix4f transform = GetTransform();
     Eigen::Vector3f aligned_dims = GetCADPtr()->GetDims();
 
     // 8 box corners in local and global frames
-    Eigen::MatrixXf corners (4, 8);
-    corners << aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2,
-               aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2, aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
-               aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
+    Eigen::MatrixXf corners(4, 8);
+    corners << aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2, aligned_dims(0)/2,
+                    -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2, -aligned_dims(0)/2,
+               aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
+                    aligned_dims(1)/2, aligned_dims(1)/2, -aligned_dims(1)/2, -aligned_dims(1)/2,
+               aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
+                    aligned_dims(2)/2, -aligned_dims(2)/2, aligned_dims(2)/2, -aligned_dims(2)/2,
                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
     corners = transform * corners;
-    
+
     return corners;
 }
 
 
-pcl::PolygonMesh::Ptr ObjCADCandidate::GetTransformedMeshPtr ()
+pcl::PolygonMesh::Ptr ObjCADCandidate::GetTransformedMeshPtr()
 {
     pcl::PolygonMesh::Ptr cad_mesh = cad_candidate->GetMeshPtr();
 
     if (transformed_mesh == nullptr)
         transformed_mesh.reset(new pcl::PolygonMesh);
 
-    Eigen::Matrix4f current_transform = GetTransform ();
-    TransformMesh (cad_mesh, current_transform, transformed_mesh);
+    Eigen::Matrix4f current_transform = GetTransform();
+    TransformMesh(cad_mesh, current_transform, transformed_mesh);
 
     return transformed_mesh;
 }
 
 
-pcl::PointCloud<PointT>::Ptr ObjCADCandidate::GetTransformedSampledCloudPtr ()
+pcl::PointCloud<PointT>::Ptr ObjCADCandidate::GetTransformedSampledCloudPtr()
 {
     pcl::PointCloud<PointT>::Ptr sampled_cloud = cad_candidate->GetSampledCloudPtr();
 
     if (transformed_sample_cloud == nullptr)
         transformed_sample_cloud.reset(new pcl::PointCloud<PointT>);
 
-    Eigen::Matrix4f current_transform = GetTransform ();
+    Eigen::Matrix4f current_transform = GetTransform();
     pcl::transformPointCloud(*sampled_cloud, *transformed_sample_cloud, current_transform);
 
     return transformed_sample_cloud;
 }
 
 
-}
+}  // namespace MapProcessing

@@ -1,7 +1,7 @@
 #include "pg_map_ros/pg_edge.h"
 
 
-using namespace std;
+using std::ostream;
 
 
 namespace pgm
@@ -27,7 +27,7 @@ PgEdge::PgEdge(int src_id, int dst_id)
 
 /**
  * Get source node ID
- * 
+ *
  * @return ID of the source node
  */
 int PgEdge::getSrcID() const
@@ -37,7 +37,7 @@ int PgEdge::getSrcID() const
 
 /**
  * Get destination node ID
- * 
+ *
  * @return ID of the destination node
  */
 int PgEdge::getDstID() const

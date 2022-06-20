@@ -30,7 +30,7 @@
   <arg name="map_file" default="*.bin" />
   <!-- Use ground truth camera pose or initial camera height to compute world_to_map transform -->
   <arg name="GT_available" default="true" />
-  <arg name="init_height" default="1.0"  /> 
+  <arg name="init_height" default="1.0"  />
 
   <!-- detectron (segmentation) parameters -->
   <arg name="enable_detectron" default="true" />
@@ -49,7 +49,7 @@
   <arg name="output_point_cloud_seg_topic" default="/perception/seg_point_cloud" />
 
   <!-- frame parameters (SLAM frame, ground truth frames) -->
-  <arg name="camera_frame" default="camera_link" /> 
+  <arg name="camera_frame" default="camera_link" />
   <arg name="rgb_frame_id" default="scenenn_camera_frame" />
   <arg name="depth_frame_id" default="scenenn_camera_frame" />
 
@@ -81,11 +81,11 @@
 
       <arg name="camera_frame_id" value="$(arg camera_frame)" />
       <arg name="camera_frame_GT_id" value="$(arg rgb_frame_id)" />
-      <arg name="GT_available" value="$(arg GT_available)" />  
-      <arg name="init_height" value="$(arg init_height)"  /> 
+      <arg name="GT_available" value="$(arg GT_available)" />
+      <arg name="init_height" value="$(arg init_height)"  />
       <!-- use output topics from perception_node -->
       <arg name="rgb_raw_topic" value="$(arg output_rgb_topic)" />
-      <arg name="depth_raw_topic" value="$(arg output_depth_topic)" /> 
+      <arg name="depth_raw_topic" value="$(arg output_depth_topic)" />
       <arg name="camera_info_topic" value="$(arg output_camera_info_topic)" />
   </include>
 
@@ -99,7 +99,7 @@
       <remap from="/perception/depth_image" to="$(arg output_depth_topic)"/>
       <remap from="/perception/camera_info" to="$(arg output_camera_info_topic)"/>
       <remap from="/perception/seg" to="$(arg output_seg_topic)"/>
-      
+
       <param name="output_folder" type="string" value="$(find panoptic_mapping_pipeline)/../../output/$(arg sequence)" />
       <param name="use_GT_camera_frame" type="bool" value="$(arg use_GT_pose)" />
       <param name="camera_frame" type="string" value="$(arg camera_frame)" />

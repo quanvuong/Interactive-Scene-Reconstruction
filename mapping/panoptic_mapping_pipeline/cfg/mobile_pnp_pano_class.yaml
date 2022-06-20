@@ -1,0 +1,20 @@
+# panoptic classes {category_name: list of id}
+pano_seg_class:
+  {"Table": [0], "Bottle": [1], "Bowl": [2], "Can": [3], "Mug": [4],
+   "Floor": [10], "Wall": [11], "Ceiling": [12]}
+
+
+# thing class with color
+obj_class_with_color:
+  {"Table": [220, 20, 60], "Bottle": [250, 0, 30], "Bowl": [255, 179, 240],
+   "Can": [197, 226, 255], "Mug": [109, 63, 54]}
+
+# stuff class with color
+sem_class_with_color:
+  {"Floor": [96, 36, 108], "Wall": [102, 102, 156], "Ceiling": [146, 139, 141]}
+
+# dynamic object filtered
+dynamic_obj_class: []
+
+# Background semantic label
+background_label: 80

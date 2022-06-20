@@ -9,6 +9,6 @@
 namespace pgm
 {
 
-} // end of namespace pgm
+}  // end of namespace pgm
 
 #endif

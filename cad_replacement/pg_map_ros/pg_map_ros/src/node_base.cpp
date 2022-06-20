@@ -1,17 +1,15 @@
 #include "pg_map_ros/node_base.h"
 
 
-using namespace std;
+using std::ostream;
+using std::vector;
 
 
 namespace pgm{
 
 
-NodeBase::NodeBase(NodeType node_type, int id)
-{
-    node_type_ = node_type;
-    id_ = id;
-}
+NodeBase::NodeBase(NodeType node_type, int id): node_type_(node_type), id_(id)
+{}
 
 
 ostream & operator << (ostream &os, const NodeBase &node)
@@ -32,10 +30,10 @@ ostream & operator << (ostream &os, const NodeBase::Ptr pnode)
 
 /**
  * Get type of the node
- * 
+ *
  * @return node type defined by enum class NodeType
  */
-NodeType NodeBase::getNodeType()
+NodeType NodeBase::getNodeType() const
 {
     return node_type_;
 }
@@ -43,10 +41,10 @@ NodeType NodeBase::getNodeType()
 
 /**
  * Get the ID of node
- * 
+ *
  * @return the ID of the node
  */
-int NodeBase::getID()
+int NodeBase::getID() const
 {
     return id_;
 }
@@ -54,12 +52,12 @@ int NodeBase::getID()
 
 /**
  * Get the number of children
- * 
+ *
  * Get the number of direct children of current node
- * 
+ *
  * @return the number of children
  */
-int NodeBase::childrenCount()
+int NodeBase::childrenCount() const
 {
     return children_.size();
 }
@@ -67,12 +65,12 @@ int NodeBase::childrenCount()
 
 /**
  * Get the list of children
- * 
+ *
  * Get the list of children of the node
- * 
+ *
  * @return A vector of pointers of the children
  */
-vector<NodeBase::Ptr> NodeBase::getChildren()
+vector<NodeBase::Ptr> NodeBase::getChildren() const
 {
     return children_;
 }
@@ -84,7 +82,7 @@ vector<NodeBase::Ptr> NodeBase::getChildren()
 
 /**
  * Add a child to the node
- * 
+ *
  * @param child the pointer of the child to be added
  */
 void NodeBase::addChild(NodeBase::Ptr child)
@@ -95,27 +93,23 @@ void NodeBase::addChild(NodeBase::Ptr child)
 
 /**
  * Delete a child from the node
- * 
+ *
  * Delete a node from the children_ list of the node
- * 
+ *
  * @param pnode the pointer of the node to be added
  */
 void NodeBase::deleteChild(NodeBase::Ptr pnode)
 {
     int idx = -1;
-    for(size_t i = 0; i < children_.size(); i++)
-    {
-        if(children_[i] == pnode)
+    for (size_t i = 0; i < children_.size(); i++)
+        if (children_[i] == pnode)
         {
             idx = i;
             break;
         }
-    }
 
-    if(idx != - 1)
-    {
+    if (idx != - 1)
         children_.erase(children_.begin() + idx);
-    }
 }
 
-} // end of namespace pgm
+}  // end of namespace pgm

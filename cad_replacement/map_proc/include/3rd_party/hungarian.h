@@ -17,8 +17,8 @@
 
 #include <iostream>
 #include <vector>
-#include <cmath>  
-#include <assert.h> 
+#include <cmath>
+#include <assert.h>
 
 
 typedef std::vector<float> VD;
@@ -39,7 +39,7 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
     v[j] = cost[0][j] - u[0];
     for (int i = 1; i < n; i++) v[j] = std::min(v[j], cost[i][j] - u[i]);
   }
-  
+
   // construct primal solution satisfying complementary slackness
   Lmate = VI(n, -1);
   Rmate = VI(n, -1);
@@ -55,27 +55,27 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
       }
     }
   }
-  
+
   VD dist(n);
   VI dad(n);
   VI seen(n);
-  
+
   // repeat until primal solution is feasible
   while (mated < n) {
-    
+
     // find an unmatched left node
     int s = 0;
     while (Lmate[s] != -1) s++;
-    
+
     // initialize Dijkstra
     fill(dad.begin(), dad.end(), -1);
     fill(seen.begin(), seen.end(), 0);
-    for (int k = 0; k < n; k++) 
+    for (int k = 0; k < n; k++)
       dist[k] = cost[s][k] - u[s] - v[k];
-    
+
     int j = 0;
     while (true) {
-      
+
       // find closest
       j = -1;
       for (int k = 0; k < n; k++) {
@@ -83,10 +83,10 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
         if (j == -1 || dist[k] < dist[j]) j = k;
       }
       seen[j] = 1;
-      
+
       // termination condition
       if (Rmate[j] == -1) break;
-      
+
       // relax neighbors
       const int i = Rmate[j];
       for (int k = 0; k < n; k++) {
@@ -98,7 +98,7 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
         }
       }
     }
-    
+
     // update dual variables
     for (int k = 0; k < n; k++) {
       if (k == j || !seen[k]) continue;
@@ -107,7 +107,7 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
       u[i] -= dist[k] - dist[j];
     }
     u[s] += dist[j];
-    
+
     // augment along path
     while (dad[j] >= 0) {
       const int d = dad[j];
@@ -117,14 +117,14 @@ float MinCostMatching(const VVD &cost, VI &Lmate, VI &Rmate) {
     }
     Rmate[j] = s;
     Lmate[s] = j;
-    
+
     mated++;
   }
-  
+
   float value = 0;
   for (int i = 0; i < n; i++)
     value += cost[i][Lmate[i]];
-  
+
   return value;
 }
 
@@ -155,9 +155,9 @@ float MinCostMatchingNonSquare(const VVD &cost, VI &mate)
     float min_score = MinCostMatching(cost_square, Lmate, Rmate);
     if (n > m)
         mate = std::vector<int>(Rmate.begin(), Rmate.begin()+m);
-    else 
+    else
         mate = std::vector<int>(Lmate.begin(), Lmate.begin()+n);
-    
+
     return min_score;
 }
 

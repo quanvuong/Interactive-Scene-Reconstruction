@@ -1,6 +1,9 @@
 #include "pg_map_ros/pgm_error.h"
 
-using namespace std;
+using std::ostream;
+using std::string;
+using std::cerr;
+using std::endl;
 
 namespace pgm
 {
@@ -48,7 +51,7 @@ ostream & operator<<(ostream &os, const ErrorType err)
     case ErrorType::FailOpenFile:
         os << "FaileOpenFile";
         break;
-    
+
     default:
         break;
     }
@@ -59,7 +62,7 @@ ostream & operator<<(ostream &os, const ErrorType err)
 
 /**
  * Look up the information of the given error code
- * 
+ *
  * @param err_code the error code
  * @return a string of the information that explains the error code
  */
@@ -72,7 +75,7 @@ string errorInfo(int err_code)
 
 /**
  * Look up the information of the given error code
- * 
+ *
  * @param err the error type
  * @return a string of the information that explains the error code
  */
@@ -93,7 +96,7 @@ string errorInfo(const ErrorType err)
     case ErrorType::NullError:
         error_info = "[NullError]: receive null pointer or null container";
         break;
-    
+
     case ErrorType::NonExistNode:
         error_info = "[NonExistNode]: cannot find node in parse graph";
         break;
@@ -123,7 +126,7 @@ string errorInfo(const ErrorType err)
         break;
 
     default:
-        error_info = "No such error code defined";      
+        error_info = "No such error code defined";
         break;
     }
 
@@ -133,19 +136,19 @@ string errorInfo(const ErrorType err)
 
 /**
  * Prompt the error information and terminate the program
- * 
+ *
  * @param err the error type
  */
 void error(ErrorType err)
 {
     cerr << errorInfo(err) << endl;
-    exit( (int)err );
+    exit(static_cast<int>(err));
 }
 
 
 /**
  * Prompt the error information and terminate the program
- * 
+ *
  * @param err the error type
  * @param msg a message string to be prompted
  */
@@ -153,8 +156,8 @@ void error(ErrorType err, const string &msg)
 {
     cerr << errorInfo(err) << endl;
     cerr << msg << endl;
-    
-    exit( (int)err );
+
+    exit(static_cast<int>(err));
 }
 
-} // end of namespace pgm
+}  // end of namespace pgm

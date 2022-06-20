@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
 
 #include "node_type.h"
 #include "node_base.h"
@@ -15,7 +16,7 @@ class ConceptNode: public NodeBase
 public:
     using Ptr = std::shared_ptr<ConceptNode>;
 
-    ConceptNode(int, std::string);
+    explicit ConceptNode(int, const std::string& = "");
 
     ~ConceptNode() = default;
 
@@ -26,7 +27,7 @@ public:
 
 
 /*******************************************************************
- * Modifier 
+ * Modifier
  ******************************************************************/
 public:
     void setConcept(const std::string &);
@@ -38,23 +39,23 @@ public:
 public:
     /**
      * Validate current parse graph
-     * 
+     *
      * Check if node_dict edge_set are correct. This method could
      * be time-consuming.
-     * 
+     *
      * @return true if valid, otherwise false
      */
-    std::string getConcept();
+    std::string getConcept() const;
 
 
 protected:
     // Overwrite the pure virtual function from NodeBase
-    virtual std::ostream & output(std::ostream &) const;
+    std::ostream & output(std::ostream &) const override;
 
 private:
     std::string concept_;
 };
 
-} // end of namespace pgm
+}  // end of namespace pgm
 
 #endif
